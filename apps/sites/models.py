@@ -53,10 +53,5 @@ class Site(BaseModel):
         verbose_name_plural = "Sites"
         ordering = ["-created_at"]
 
-    def save(self, user=None, *args, **kwargs):
-        if user:
-            self.updated_by = user
-        super().save(*args, **kwargs)
-
     def __str__(self):
         return self.name
