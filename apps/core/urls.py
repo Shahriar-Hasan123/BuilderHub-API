@@ -6,6 +6,6 @@ from .views import register
 urlpatterns = [
     path("health/", health_check, name="health_check"),
     path('auth/register/', register, name='register'),
-    path('api/auth/login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('api/auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('auth/login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 ]
