@@ -1,7 +1,7 @@
-from rest_framework.routers import DefaultRouter
-from .views import PageViewSet
+from django.urls import path
+from .views import PageListCreateAPIView, PageDetailAPIView
 
-router = DefaultRouter()
-router.register("pages", PageViewSet, basename="page")
-
-urlpatterns = router.urls
+urlpatterns = [
+    path('pages/', PageListCreateAPIView.as_view(), name='page-list-create'),
+    path('pages/<int:pk>/', PageDetailAPIView.as_view(), name='page-detail'),
+]
