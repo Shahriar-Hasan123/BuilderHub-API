@@ -24,8 +24,11 @@ class PageSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "slug", "created_by", "updated_by", "created_at", "updated_at"]
 
-        def validate_site(self, value):
-            request = self.context.get("request")
-            if request.user != value.user:
-                raise serializers.ValidationError("You can only add pages to your own site.")
-            return value
+    def validate_site(self, value):
+        request = self.context.get("request")
+        if request is None or getattr(request, "user", None) is None:
+            raise serializers.ValidationError("Authentication is required.")
+
+        if request.user != value.user:
+            raise serializers.ValidationError("You can only add pages to your own site.")
+        return value

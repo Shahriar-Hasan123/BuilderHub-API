@@ -21,7 +21,7 @@ def health_check(request):
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def register(request):
-    serializer = RegisterSerializer(data=request.Data)
+    serializer = RegisterSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     user = serializer.save()
     return Response(
