@@ -37,9 +37,7 @@ class Page(BaseModel):
     )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
+        on_delete=models.PROTECT,
         related_name="pages_created",
     )
     updated_by = models.ForeignKey(
