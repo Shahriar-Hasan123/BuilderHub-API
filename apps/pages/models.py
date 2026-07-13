@@ -62,11 +62,6 @@ class Page(BaseModel):
         if not self.slug:
             self.slug = slugify(self.title)
 
-        if user:
-            if not self.pk:
-                self.created_by = user
-            self.updated_by = user
-
         super().save(*args, **kwargs)
 
     def __str__(self):
