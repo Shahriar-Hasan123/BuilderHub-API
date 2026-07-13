@@ -1,4 +1,4 @@
-# Website Builder Backend API
+# BuilderHub-API
 
 A production-level website builder backend (Wix/Webflow-style), built with Django REST Framework. Allows users to create sites, manage pages under each site, and (in future) collaborate with team members on shared sites.
 
