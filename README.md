@@ -166,7 +166,6 @@ Authorization: Bearer <access_token>
 
 ## Development Notes
 
-- Password strength is enforced via Django's `AUTH_PASSWORD_VALIDATORS`.
 - Refresh tokens rotate on use and are blacklisted after rotation to prevent replay attacks.
 - Site ownership is enforced at the serializer level — users can only create/manage pages under sites they own.
 - File uploads (favicon, logo, global CSS, page HTML/CSS) are served locally in development via Django's media handling; a production setup should use cloud storage (e.g. S3) instead.
