@@ -1,7 +1,8 @@
 from django.conf import settings
 from django.db import models
+
 from apps.core.models import BaseModel
-from apps.core.validators import validate_file_size, css_file_validator
+from apps.core.validators import css_file_validator, validate_file_size
 
 
 class Site(BaseModel):
@@ -52,8 +53,10 @@ class Site(BaseModel):
         verbose_name = "Site"
         verbose_name_plural = "Sites"
         ordering = ["-created_at"]
-        constraints =[
-            models.UniqueConstraint(fields=["user","name"], name="unique_site_name_per_user"),
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "name"], name="unique_site_name_per_user"
+            ),
         ]
 
     def __str__(self):

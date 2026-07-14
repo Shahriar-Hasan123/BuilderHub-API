@@ -1,11 +1,18 @@
 from django.db import connection
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+
 from .serializers import RegisterSerializer
+from drf_spectacular.utils import extend_schema
 
 
+@extend_schema(
+    tags=["Auth"],
+    summary="Health check",
+    description="Returns the API health status and database connectivity.",
+)
 @api_view(["GET"])
 def health_check(request):
     try:
@@ -17,7 +24,11 @@ def health_check(request):
 
     return Response({"status": "ok", "database": db_status}, status=status.HTTP_200_OK)
 
-
+@extend_schema(
+    tags=["Auth"],
+    summary="Register user",
+    description="Create a new user account with a username and password."
+)
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def register(request):
