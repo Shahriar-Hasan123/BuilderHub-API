@@ -52,6 +52,9 @@ class Site(BaseModel):
         verbose_name = "Site"
         verbose_name_plural = "Sites"
         ordering = ["-created_at"]
+        constraints =[
+            models.UniqueConstraint(fields=["user","name"], name="unique_site_name_per_user"),
+        ]
 
     def __str__(self):
         return self.name

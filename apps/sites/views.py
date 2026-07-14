@@ -16,7 +16,7 @@ class SiteListCreateAPIView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request):
-        serializer = SiteSerializer(data=request.data)
+        serializer = SiteSerializer(data=request.data, context={"request":request})
         serializer.is_valid(raise_exception=True)
         serializer.save(user=request.user, updated_by=request.user)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -35,14 +35,14 @@ class SiteDetailAPIView(APIView):
 
     def put(self, request, pk):
         site = self.get_object(pk, request.user)
-        serializer = SiteSerializer(instance=site, data=request.data)
+        serializer = SiteSerializer(instance=site, data=request.data, context={"request":request})
         serializer.is_valid(raise_exception=True)
         serializer.save(updated_by=request.user)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def patch(self, request, pk):
         site = self.get_object(pk, request.user)
-        serializer = SiteSerializer(instance=site, data=request.data, partial=True)
+        serializer = SiteSerializer(instance=site, data=request.data, partial=True, context={"request":request})
         serializer.is_valid(raise_exception=True)
         serializer.save(updated_by=request.user)
         return Response(serializer.data, status=status.HTTP_200_OK)

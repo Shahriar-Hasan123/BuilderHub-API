@@ -144,13 +144,13 @@ The API will be available at `http://127.0.0.1:8000/`.
 | DELETE | `/api/sites/{id}/`    | Delete a site                      | Yes           |
 
 ### Pages
-| Method | Endpoint            | Description                              | Auth Required |
-|--------|----------------------|-------------------------------------------|---------------|
-| GET    | `/api/pages/`         | List pages under current user's sites     | Yes           |
-| POST   | `/api/pages/`         | Create a new page (must belong to own site) | Yes         |
-| GET    | `/api/pages/{id}/`    | Retrieve a specific page                  | Yes           |
-| PUT/PATCH | `/api/pages/{id}/` | Update a page                             | Yes           |
-| DELETE | `/api/pages/{id}/`    | Delete a page                             | Yes           |
+| Method | Endpoint                                        | Description                                         | Auth Required |
+|--------|-------------------------------------------------|-----------------------------------------------------|---------------|
+| GET    | `/api/sites/{site_pk}/pages/`                    | List pages for a specific site                      | Yes           |
+| POST   | `/api/sites/{site_pk}/pages/`                    | Create a new page under a specific site             | Yes           |
+| GET    | `/api/sites/{site_pk}/pages/{id}/`               | Retrieve a specific page                            | Yes           |
+| PUT/PATCH | `/api/sites/{site_pk}/pages/{id}/`            | Update a page                                       | Yes           |
+| DELETE | `/api/sites/{site_pk}/pages/{id}/`               | Delete a page                                       | Yes           |
 
 ## Authentication Flow
 

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import Page
-
+from django.utils.text import slugify
 
 class PageSerializer(serializers.ModelSerializer):
     class Meta:
@@ -24,11 +24,12 @@ class PageSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "site", "slug", "created_by", "updated_by", "created_at", "updated_at"]
 
-    def validate_site(self, value):
-        request = self.context.get("request")
-        if request is None or getattr(request, "user", None) is None:
-            raise serializers.ValidationError("Authentication is required.")
-
-        if request.user != value.user:
-            raise serializers.ValidationError("You can only add pages to your own site.")
+    def validate_title(self, value):
+        site = self.context.get("site") 
+        prospective_slug = slugify(value)
+        queryset = Page.objects.filter(site=site, slug=prospective_slug)
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if queryset.exists():
+            raise serializers.ValidationError("A page with this title already exists for this site.")
         return value
