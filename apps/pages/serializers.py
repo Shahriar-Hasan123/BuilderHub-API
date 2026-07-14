@@ -22,7 +22,7 @@ class PageSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "slug", "created_by", "updated_by", "created_at", "updated_at"]
+        read_only_fields = ["id", "site", "slug", "created_by", "updated_by", "created_at", "updated_at"]
 
     def validate_site(self, value):
         request = self.context.get("request")
