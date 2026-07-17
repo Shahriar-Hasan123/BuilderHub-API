@@ -19,10 +19,11 @@ class Page(BaseModel):
     class PageType(models.TextChoices):
         STANDARD = "standard", "Standard"
         LANDING = "landing", "Landing Page"
+        BLOG = "blog", "Blog Page"
 
     site = models.ForeignKey(Site, on_delete=models.CASCADE, related_name="pages")
     title = models.CharField(max_length=255)
-    slug = models.SlugField(blank=True)
+    slug = models.SlugField(max_length=100, blank=True)
     meta_description = models.CharField(max_length=300, blank=True)
     status = models.CharField(
         max_length=20, choices=Status.choices, default=Status.DRAFT
