@@ -1,6 +1,6 @@
 # BuilderHub-API
 
-A production-style website builder backend built with Django and Django REST Framework. It supports user authentication, site management, page management, Swagger-based API documentation, and Ruff-based code quality checks.
+A production-style website builder backend built with Django and Django REST Framework. It supports user authentication, site management, page management, Swagger-based API documentation, Redis-backed caching, and Ruff-based code quality checks.
 
 ## Tech Stack
 
@@ -9,6 +9,7 @@ A production-style website builder backend built with Django and Django REST Fra
 - API documentation: drf-spectacular (Swagger UI, Redoc, OpenAPI schema)
 - Code quality: Ruff for linting and formatting
 - Database: PostgreSQL (via Docker Compose)
+- Cache and distributed locks: Redis
 - Environment config: python-dotenv
 
 ## Project Structure
@@ -73,11 +74,15 @@ DB_USER=your_db_user
 DB_PASSWORD=your_db_password
 DB_HOST=localhost
 DB_PORT=5432
+
+REDIS_HOST=localhost
+REDIS_PORT=6379
+TTL_SECONDS=300
 ```
 
-> Note: `DB_HOST=localhost` is used because the database runs in Docker while Django runs locally.
+> Note: `DB_HOST=localhost` is used because the database runs in Docker while Django runs locally. Redis is also expected to be available on `localhost:6379` for development.
 
-### 5. Start PostgreSQL with Docker
+### 5. Start PostgreSQL and Redis with Docker
 
 ```bash
 docker compose up -d
@@ -115,6 +120,18 @@ The API will be available at http://127.0.0.1:8000/.
 | `DB_PASSWORD` | PostgreSQL password |
 | `DB_HOST` | Database host |
 | `DB_PORT` | Database port |
+| `REDIS_HOST` | Redis host for cache and distributed locks |
+| `REDIS_PORT` | Redis port |
+| `TTL_SECONDS` | Time-to-live for Redis-based site locks in seconds |
+
+## Redis Cache and Site Locking
+
+This project uses Redis for two purposes:
+
+- Django cache backend via `django-redis`
+- Distributed site edit locks to prevent two users from editing the same site at the same time
+
+The lock uses a Redis key per site and expires after the configured `TTL_SECONDS` value. If a site is already locked, the API returns a clear conflict error and asks the user to try again later.
 
 ## API Endpoints
 
@@ -155,6 +172,67 @@ All API routes are versioned under `/api/v1/`.
 | PUT | `/api/v1/sites/{site_pk}/pages/{id}/` | Replace a page | Yes |
 | PATCH | `/api/v1/sites/{site_pk}/pages/{id}/` | Partially update a page | Yes |
 | DELETE | `/api/v1/sites/{site_pk}/pages/{id}/` | Delete a page | Yes |
+
+## Google Docs Blog Importer
+
+Batch import blog articles directly from a public Google Docs document. Each tab in the document becomes a separate blog page.
+
+### Features
+
+- Converts Google Docs tabs to blog pages automatically
+- Processes embedded images and saves them locally
+- Sanitizes HTML to prevent XSS attacks
+- Supports batch imports with detailed status reporting
+- Idempotent: re-running imports with identical content skips unnecessary updates
+- Cleans up old media files on updates
+
+### How to Use
+
+1. **Prepare a public Google Docs document** with blog content in separate tabs
+2. **Get the document ID** from the URL: `docs.google.com/document/d/{DOC_ID}/`
+3. **Get tab IDs** by inspecting the document (visible in URL parameters)
+4. **Run the import command**:
+
+```bash
+python manage.py import_blogs \
+  --doc-id "YOUR_GOOGLE_DOCS_ID" \
+  --tabs "t.0,t.abc123,t.xyz789" \
+  --site-id 1
+```
+
+### Arguments
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `--doc-id` | Yes | Google Docs document ID |
+| `--tabs` | Yes | Comma-separated tab IDs (e.g., `t.0,t.tab1,t.tab2`) |
+| `--site-id` | Yes | Target site ID in the database |
+
+### Example Output
+
+```
+✓ created  Building a Scalable Django Application for Production
+✓ updated  Understanding REST API Design Principles
+→ skipped  The Importance of Cloud Computing in Modern Development
+✗ failed   Invalid Document  (No <h1> title found in tab)
+
+Done — created: 1, updated: 1, skipped: 1, failed: 1
+```
+
+### Processing Pipeline
+
+1. **Fetch**: Exports HTML from each Google Docs tab
+2. **Images**: Extracts embedded images and saves locally to `media/pages/images/`
+3. **Clean**: Removes unwanted HTML tags and attributes, preserves structure
+4. **Sanitize**: Bleach sanitization to prevent XSS
+5. **Create/Update**: Stores pages as drafts with BLOG type
+
+### Notes
+
+- Pages are created with `status=DRAFT` automatically
+- Each page gets a unique slug based on the H1 title
+- Image files are deduplicated by content hash
+- Failed tabs don't halt the batch process; results are logged for each tab
 
 ## Authentication Flow
 

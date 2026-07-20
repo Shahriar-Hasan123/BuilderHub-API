@@ -13,9 +13,12 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--doc-id", required=True, help="Google Docs document ID")
-        parser.add_argument("--tabs", required=True, help="Comma-separated tab IDs, e.g. t.0,t.abc123",)
+        parser.add_argument(
+            "--tabs",
+            required=True,
+            help="Comma-separated tab IDs, e.g. t.0,t.abc123",
+        )
         parser.add_argument("--site-id", required=True, type=int, help="Target Site ID")
-
 
     def handle(self, *args, **options):
         doc_id = options["doc_id"]

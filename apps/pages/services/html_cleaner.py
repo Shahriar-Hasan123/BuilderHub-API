@@ -2,7 +2,6 @@ from bs4 import BeautifulSoup
 
 
 class HTMLCleaner:
-
     ALLOWED_ATTRS = {
         "a": ["href", "title", "target", "rel"],
         "img": ["src", "alt", "title", "width", "height"],

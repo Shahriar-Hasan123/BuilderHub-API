@@ -5,16 +5,17 @@ from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema
 
 from apps.sites.models import Site
+from apps.core.mixins import SiteLockMixin
 
 from .models import Page
 from .serializers import PageSerializer
 
 
-class PageListCreateAPIView(APIView):
+class PageListCreateAPIView(APIView, SiteLockMixin):
     permission_classes = [permissions.IsAuthenticated]
 
-    def get_site(self, site_pk, user):
-        return get_object_or_404(Site, pk=site_pk, user=user)
+    def get_site(self, site_pk):
+        return get_object_or_404(Site, pk=site_pk)
 
     @extend_schema(
         tags=["Pages"],
@@ -22,7 +23,8 @@ class PageListCreateAPIView(APIView):
         description="Return all pages belonging to a specific site.",
     )
     def get(self, request, site_pk):
-        site = self.get_site(site_pk, request.user)
+        site = self.get_site(site_pk)
+        self.enforce_site_lock(request, site)
         pages = Page.objects.filter(site=site)
         serializer = PageSerializer(pages, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -33,7 +35,8 @@ class PageListCreateAPIView(APIView):
         description="Create a new page under a specific site.",
     )
     def post(self, request, site_pk):
-        site = self.get_site(site_pk, request.user)
+        site = self.get_site(site_pk)
+        self.enforce_site_lock(request, site)
         serializer = PageSerializer(
             data=request.data,
             context={
@@ -45,11 +48,12 @@ class PageListCreateAPIView(APIView):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
-class PageDetailAPIView(APIView):
+class PageDetailAPIView(APIView, SiteLockMixin):
     permission_classes = [permissions.IsAuthenticated]
 
-    def get_object(self, site_pk, pk, user):
-        site = get_object_or_404(Site, pk=site_pk, user=user)
+    def get_object(self,request, site_pk, pk):
+        site = get_object_or_404(Site, pk=site_pk)
+        self.enforce_site_lock(request, site)
         return get_object_or_404(Page, pk=pk, site=site)
 
     @extend_schema(
@@ -58,7 +62,7 @@ class PageDetailAPIView(APIView):
         description="Retrieve a single page by its ID.",
     )
     def get(self, request, site_pk, pk):
-        page = self.get_object(site_pk, pk, request.user)
+        page = self.get_object(request, site_pk, pk)
         serializer = PageSerializer(page)
         return Response(serializer.data)
 
@@ -68,7 +72,7 @@ class PageDetailAPIView(APIView):
         description="Update an existing page completely.",
     )
     def put(self, request, site_pk, pk):
-        page = self.get_object(site_pk, pk, request.user)
+        page = self.get_object(request, site_pk, pk)
         serializer = PageSerializer(
             instance=page,
             data=request.data,
@@ -86,7 +90,7 @@ class PageDetailAPIView(APIView):
         description="Partially update an existing page.",
     )
     def patch(self, request, site_pk, pk):
-        page = self.get_object(site_pk, pk, request.user)
+        page = self.get_object(request, site_pk, pk)
         serializer = PageSerializer(
             instance=page,
             data=request.data,
@@ -105,6 +109,6 @@ class PageDetailAPIView(APIView):
         description="Delete a page by its ID.",
     )
     def delete(self, request, site_pk, pk):
-        page = self.get_object(site_pk, pk, request.user)
+        page = self.get_object(request, site_pk, pk)
         page.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)

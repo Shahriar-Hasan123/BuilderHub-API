@@ -24,10 +24,11 @@ def health_check(request):
 
     return Response({"status": "ok", "database": db_status}, status=status.HTTP_200_OK)
 
+
 @extend_schema(
     tags=["Auth"],
     summary="Register user",
-    description="Create a new user account with a username and password."
+    description="Create a new user account with a username and password.",
 )
 @api_view(["POST"])
 @permission_classes([AllowAny])
