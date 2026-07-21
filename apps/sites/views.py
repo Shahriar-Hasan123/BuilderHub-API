@@ -3,7 +3,15 @@ from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.services.resource_lock import SiteLockService
+from apps.core.exceptions import (
+    ResourceLockedError,
+    LockNotHeldError,
+    SiteLockedAPIException,
+    NoActiveLockAPIException,
+)
 from apps.core.mixins import SiteLockMixin
+
 from .models import Site
 from .serializers import SiteSerializer
 from drf_spectacular.utils import extend_schema
@@ -91,3 +99,37 @@ class SiteDetailAPIView(APIView, SiteLockMixin):
         self.enforce_site_lock(request, site)
         site.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class SiteLockRefreshApiView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        site = get_object_or_404(Site, pk=pk)
+
+        try:
+            SiteLockService().refresh(site.id, request.user.username)
+        except LockNotHeldError:
+            raise NoActiveLockAPIException()
+        except ResourceLockedError as exc:
+            raise SiteLockedAPIException(
+                detail=f"This site is locked by {exc.locked_by}, not you."
+            )
+
+        return Response({"detail": "Lock Refreshed"}, status=status.HTTP_200_OK)
+
+
+class SiteLockReleaseAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        site = get_object_or_404(Site, pk=pk)
+        try:
+            SiteLockService().release(site.id, request.user.username)
+        except LockNotHeldError:
+            raise NoActiveLockAPIException()
+        except ResourceLockedError as exc:
+            raise SiteLockedAPIException(
+                detail=f"This site is locked by {exc.locked_by}, not you."
+            )
+        return Response({"detail": "Lock released."}, status=status.HTTP_200_OK)
