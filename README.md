@@ -129,9 +129,40 @@ The API will be available at http://127.0.0.1:8000/.
 This project uses Redis for two purposes:
 
 - Django cache backend via `django-redis`
-- Distributed site edit locks to prevent two users from editing the same site at the same time
+- Distributed site edit locks to prevent concurrent editing of the same site
 
-The lock uses a Redis key per site and expires after the configured `TTL_SECONDS` value. If a site is already locked, the API returns a clear conflict error and asks the user to try again later.
+### How Site Locks Work
+
+The lock system uses a Redis key per site that expires after the configured `RESOURCE_LOCK_TTL_SECONDS` value (default: 300 seconds). A lock is automatically acquired when a user:
+
+- Creates a page under a site
+- Updates (PUT/PATCH) a page in a site
+- Updates (PUT/PATCH) a site itself
+- Deletes a page or site
+
+### Lock Lifecycle
+
+1. **Acquire** (`POST /api/v1/sites/{id}/lock/`): User acquires an exclusive lock
+   - Returns `201 Created` with lock status if successful
+   - Returns `409 Conflict` if another user already holds the lock
+
+2. **Check Status** (`GET /api/v1/sites/{id}/lock/`): Check who (if anyone) holds the lock
+   - Returns lock details: `user_id`, `locked_by`, `locked_at`, `ttl_remaining_seconds`
+
+3. **Refresh** (`PATCH /api/v1/sites/{id}/lock/`): Extend lock expiration (must hold the lock)
+   - Useful for long-running operations to keep the lock alive
+   - Returns `200 OK` with updated TTL
+
+4. **Release** (`DELETE /api/v1/sites/{id}/lock/`): Voluntarily release the lock
+   - Returns `204 No Content`
+
+### Lock Enforcement
+
+Edit operations (page/site creation, update, delete) automatically enforce locks via the `SiteLockMixin`:
+
+- If the site is already locked by another user, the operation returns `409 Conflict`
+- The current user's lock is automatically refreshed on each operation
+- Locks expire automatically if the user becomes inactive
 
 ## API Endpoints
 
@@ -161,6 +192,15 @@ All API routes are versioned under `/api/v1/`.
 | PUT | `/api/v1/sites/{id}/` | Replace a site | Yes |
 | PATCH | `/api/v1/sites/{id}/` | Partially update a site | Yes |
 | DELETE | `/api/v1/sites/{id}/` | Delete a site | Yes |
+
+### Site Locks
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| GET | `/api/v1/sites/{id}/lock/` | Get lock status for a site | Yes |
+| POST | `/api/v1/sites/{id}/lock/` | Acquire lock for a site | Yes |
+| PATCH | `/api/v1/sites/{id}/lock/` | Refresh lock expiration | Yes |
+| DELETE | `/api/v1/sites/{id}/lock/` | Release lock for a site | Yes |
 
 ### Pages
 

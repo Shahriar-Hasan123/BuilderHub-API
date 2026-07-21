@@ -55,7 +55,6 @@ class SiteDetailAPIView(APIView, SiteLockMixin):
     )
     def get(self, request, pk):
         site = self.get_object(pk)
-        self.enforce_site_lock(request, site)
         serializer = SiteSerializer(site)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -97,18 +96,36 @@ class SiteDetailAPIView(APIView, SiteLockMixin):
     def delete(self, request, pk):
         site = self.get_object(pk)
         self.enforce_site_lock(request, site)
+        site_id = site.id
         site.delete()
+        SiteLockService().clear(site_id)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class SiteLockRefreshApiView(APIView):
+class SiteLockAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
-    def post(self, request, pk):
-        site = get_object_or_404(Site, pk=pk)
+    def get_site(self, pk):
+        return get_object_or_404(Site, pk=pk)
 
+    def get(self, request, pk):
+        site = self.get_site(pk)
+        return Response(SiteLockService().status(site.id))
+
+    def post(self, request, pk):
+        site = self.get_site(pk)
+        service = SiteLockService()
         try:
-            SiteLockService().refresh(site.id, request.user.username)
+            service.acquire(site.id, request.user)
+        except ResourceLockedError as exc:
+            raise SiteLockedAPIException(detail=f"This site is currently being edited by {exc.locked_by}.")
+        return Response(service.status(site.id), status=status.HTTP_201_CREATED)
+
+    def patch(self, request, pk):
+        site = self.get_site(pk)
+        service = SiteLockService()
+        try:
+            service.refresh(site.id, request.user)
         except LockNotHeldError:
             raise NoActiveLockAPIException()
         except ResourceLockedError as exc:
@@ -116,20 +133,17 @@ class SiteLockRefreshApiView(APIView):
                 detail=f"This site is locked by {exc.locked_by}, not you."
             )
 
-        return Response({"detail": "Lock Refreshed"}, status=status.HTTP_200_OK)
+        return Response(service.status(site.id), status=status.HTTP_200_OK)
 
-
-class SiteLockReleaseAPIView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request, pk):
+    def delete(self, request, pk):
         site = get_object_or_404(Site, pk=pk)
+        service = SiteLockService()
         try:
-            SiteLockService().release(site.id, request.user.username)
+            service.release(site.id, request.user)
         except LockNotHeldError:
             raise NoActiveLockAPIException()
         except ResourceLockedError as exc:
             raise SiteLockedAPIException(
                 detail=f"This site is locked by {exc.locked_by}, not you."
             )
-        return Response({"detail": "Lock released."}, status=status.HTTP_200_OK)
+        return Response({"detail": "Lock released."}, status=status.HTTP_204_NO_CONTENT)

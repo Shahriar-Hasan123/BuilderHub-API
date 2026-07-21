@@ -1,5 +1,6 @@
 from django.core.cache import cache
 from django.conf import settings
+from django.utils import timezone
 from apps.core.exceptions import ResourceLockedError, LockNotHeldError
 
 
@@ -10,40 +11,65 @@ class SiteLockService:
     def _key(self, site_id):
         return f"lock:site:{site_id}"
 
-    def acquire(self, site_id, username):
+    def acquire(self, site_id, user):
         key = self._key(site_id)
+        now = timezone.now().isoformat()
+        new_lock = {
+            "user_id": user.id,
+            "username": user.username,
+            "locked_at": now,
+            "last_activity_at": now,
+        }
 
-        acquire = cache.add(key, username, self.ttl)
-
+        acquire = cache.add(key, new_lock, self.ttl)
         if acquire:
             return
+        current = cache.get(key)
+        if current and current["user_id"] == user.id:
+            current["last_activity_at"] = now
+            cache.set(key, current, timeout=self.ttl)
+        raise ResourceLockedError(locked_by=current["username"] if current else "unknown")
 
-        current_holder = cache.get(key)
-        if current_holder == username:
-            cache.set(key, username, self.ttl)
-            return
-        raise ResourceLockedError(locked_by=current_holder)
-
-    def refresh(self, site_id, username):
+    def refresh(self, site_id, user):
         key = self._key(site_id)
-        current_holder = cache.get(key)
-        
-        if not current_holder:
-            raise LockNotHeldError()
-        
-        if current_holder != username:
-            raise ResourceLockedError(locked_by=current_holder)
-        
-        cache.set(key, username, timeout=self.ttl)
+        current = cache.get(key)
 
-    def release(self, site_id, username):
-        key = self._key(site_id)
-        current_holder = cache.get(key)
-        
-        if not current_holder:
+        if not current:
             raise LockNotHeldError()
-        
-        if current_holder != username:
-            raise ResourceLockedError(locked_by=current_holder)
-        
+
+        if current["user_id"] != user.id:
+            raise ResourceLockedError(locked_by=current["username"])
+
+        current["last_activity_at"] = timezone.now().isoformat()
+        cache.set(key, current, timeout=self.ttl)
+
+    def release(self, site_id, user):
+        key = self._key(site_id)
+        current = cache.get(key)
+
+        if not current:
+            raise LockNotHeldError()
+
+        if current["user_id"] != user.id:
+            raise ResourceLockedError(locked_by=current["username"])
+
         cache.delete(key)
+
+    def status(self, site_id):
+        key = self._key(site_id)
+        current = cache.get(key)
+
+        if not current:
+            return {"locked": False, "detail": "No active lock exist in this site now"}
+
+        return {
+            "locked": True,
+            "user_id": current["user_id"],
+            "locked_by": current["username"],
+            "locked_at": current["locked_at"],
+            "last_activity_at": current["last_activity_at"],
+            "ttl_remaining_seconds": cache.ttl(key),
+        }
+    
+    def clear(self, site_id):
+        cache.delete(self._key(site_id))

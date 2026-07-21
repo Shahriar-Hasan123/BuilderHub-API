@@ -24,7 +24,6 @@ class PageListCreateAPIView(APIView, SiteLockMixin):
     )
     def get(self, request, site_pk):
         site = self.get_site(site_pk)
-        self.enforce_site_lock(request, site)
         pages = Page.objects.filter(site=site)
         serializer = PageSerializer(pages, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -51,10 +50,10 @@ class PageListCreateAPIView(APIView, SiteLockMixin):
 class PageDetailAPIView(APIView, SiteLockMixin):
     permission_classes = [permissions.IsAuthenticated]
 
-    def get_object(self,request, site_pk, pk):
+    def get_object(self, site_pk, pk):
         site = get_object_or_404(Site, pk=site_pk)
-        self.enforce_site_lock(request, site)
-        return get_object_or_404(Page, pk=pk, site=site)
+        page = get_object_or_404(Page, pk=pk, site=site)
+        return site, page
 
     @extend_schema(
         tags=["Pages"],
@@ -62,7 +61,7 @@ class PageDetailAPIView(APIView, SiteLockMixin):
         description="Retrieve a single page by its ID.",
     )
     def get(self, request, site_pk, pk):
-        page = self.get_object(request, site_pk, pk)
+        site, page = self.get_object(site_pk, pk)
         serializer = PageSerializer(page)
         return Response(serializer.data)
 
@@ -72,7 +71,8 @@ class PageDetailAPIView(APIView, SiteLockMixin):
         description="Update an existing page completely.",
     )
     def put(self, request, site_pk, pk):
-        page = self.get_object(request, site_pk, pk)
+        site, page = self.get_object(site_pk, pk)
+        self.enforce_site_lock(request, site)        
         serializer = PageSerializer(
             instance=page,
             data=request.data,
@@ -90,7 +90,8 @@ class PageDetailAPIView(APIView, SiteLockMixin):
         description="Partially update an existing page.",
     )
     def patch(self, request, site_pk, pk):
-        page = self.get_object(request, site_pk, pk)
+        site, page = self.get_object(site_pk, pk)
+        self.enforce_site_lock(request, site)
         serializer = PageSerializer(
             instance=page,
             data=request.data,
@@ -109,6 +110,7 @@ class PageDetailAPIView(APIView, SiteLockMixin):
         description="Delete a page by its ID.",
     )
     def delete(self, request, site_pk, pk):
-        page = self.get_object(request, site_pk, pk)
+        site, page = self.get_object(site_pk, pk)
+        self.enforce_site_lock(request, site)
         page.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
