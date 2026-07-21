@@ -188,19 +188,19 @@ All API routes are versioned under `/api/v1/`.
 |--------|----------|-------------|---------------|
 | GET | `/api/v1/sites/` | List sites owned by the current user | Yes |
 | POST | `/api/v1/sites/` | Create a new site | Yes |
-| GET | `/api/v1/sites/{id}/` | Retrieve a specific site | Yes |
-| PUT | `/api/v1/sites/{id}/` | Replace a site | Yes |
-| PATCH | `/api/v1/sites/{id}/` | Partially update a site | Yes |
-| DELETE | `/api/v1/sites/{id}/` | Delete a site | Yes |
+| GET | `/api/v1/sites/{pk}/` | Retrieve a specific site | Yes |
+| PUT | `/api/v1/sites/{pk}/` | Replace a site | Yes |
+| PATCH | `/api/v1/sites/{pk}/` | Partially update a site | Yes |
+| DELETE | `/api/v1/sites/{pk}/` | Delete a site | Yes |
 
 ### Site Locks
 
 | Method | Endpoint | Description | Auth Required |
 |--------|----------|-------------|---------------|
-| GET | `/api/v1/sites/{id}/lock/` | Get lock status for a site | Yes |
-| POST | `/api/v1/sites/{id}/lock/` | Acquire lock for a site | Yes |
-| PATCH | `/api/v1/sites/{id}/lock/` | Refresh lock expiration | Yes |
-| DELETE | `/api/v1/sites/{id}/lock/` | Release lock for a site | Yes |
+| GET | `/api/v1/sites/{pk}/lock/` | Get lock status for a site | Yes |
+| POST | `/api/v1/sites/{pk}/lock/` | Acquire lock for a site | Yes |
+| PATCH | `/api/v1/sites/{pk}/lock/` | Refresh lock expiration | Yes |
+| DELETE | `/api/v1/sites/{pk}/lock/` | Release lock for a site | Yes |
 
 ### Pages
 
@@ -208,10 +208,10 @@ All API routes are versioned under `/api/v1/`.
 |--------|----------|-------------|---------------|
 | GET | `/api/v1/sites/{site_pk}/pages/` | List pages for a specific site | Yes |
 | POST | `/api/v1/sites/{site_pk}/pages/` | Create a page under a site | Yes |
-| GET | `/api/v1/sites/{site_pk}/pages/{id}/` | Retrieve a specific page | Yes |
-| PUT | `/api/v1/sites/{site_pk}/pages/{id}/` | Replace a page | Yes |
-| PATCH | `/api/v1/sites/{site_pk}/pages/{id}/` | Partially update a page | Yes |
-| DELETE | `/api/v1/sites/{site_pk}/pages/{id}/` | Delete a page | Yes |
+| GET | `/api/v1/sites/{site_pk}/pages/{pk}/` | Retrieve a specific page | Yes |
+| PUT | `/api/v1/sites/{site_pk}/pages/{pk}/` | Replace a page | Yes |
+| PATCH | `/api/v1/sites/{site_pk}/pages/{pk}/` | Partially update a page | Yes |
+| DELETE | `/api/v1/sites/{site_pk}/pages/{pk}/` | Delete a page | Yes |
 
 ## Google Docs Blog Importer
 
@@ -284,7 +284,7 @@ Done — created: 1, updated: 1, skipped: 1, failed: 1
 Authorization: Bearer <access_token>
 ```
 
-4. Refresh the access token via `/api/auth/refresh/` when it expires
+4. Refresh the access token via `/api/v1/auth/refresh/` when it expires
 
 ## Swagger / OpenAPI
 
@@ -304,9 +304,9 @@ python manage.py spectacular --validate
 
 ### Open the docs
 
-- Swagger UI: http://127.0.0.1:8000/api/docs/
-- OpenAPI schema: http://127.0.0.1:8000/api/schema/
-- Redoc: http://127.0.0.1:8000/api/redoc/
+- Swagger UI: http://127.0.0.1:8000/api/v1/docs/
+- OpenAPI schema: http://127.0.0.1:8000/api/v1/schema/
+- Redoc: http://127.0.0.1:8000/api/v1/redoc/
 
 ## Code Quality
 
