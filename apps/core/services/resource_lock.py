@@ -1,7 +1,8 @@
-from django.core.cache import cache
 from django.conf import settings
+from django.core.cache import cache
 from django.utils import timezone
-from apps.core.exceptions import ResourceLockedError, LockNotHeldError
+
+from apps.core.exceptions import LockNotHeldError, ResourceLockedError
 
 
 class SiteLockService:
@@ -28,7 +29,9 @@ class SiteLockService:
         if current and current["user_id"] == user.id:
             current["last_activity_at"] = now
             cache.set(key, current, timeout=self.ttl)
-        raise ResourceLockedError(locked_by=current["username"] if current else "unknown")
+        raise ResourceLockedError(
+            locked_by=current["username"] if current else "unknown"
+        )
 
     def refresh(self, site_id, user):
         key = self._key(site_id)
@@ -70,6 +73,6 @@ class SiteLockService:
             "last_activity_at": current["last_activity_at"],
             "ttl_remaining_seconds": cache.ttl(key),
         }
-    
+
     def clear(self, site_id):
         cache.delete(self._key(site_id))

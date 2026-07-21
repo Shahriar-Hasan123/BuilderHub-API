@@ -1,11 +1,11 @@
 from django.core.management.base import BaseCommand, CommandError
 
-from apps.sites.models import Site
 from apps.pages.services.blog_importer import BlogImporterService
 from apps.pages.services.google_docs_client import GoogleDocsClient
 from apps.pages.services.html_cleaner import HTMLCleaner
 from apps.pages.services.html_sanitizer import HTMLSanitizer
 from apps.pages.services.image_handler import ImageHandler
+from apps.sites.models import Site
 
 
 class Command(BaseCommand):

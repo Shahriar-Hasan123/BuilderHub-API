@@ -1,20 +1,20 @@
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import extend_schema
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.core.services.resource_lock import SiteLockService
 from apps.core.exceptions import (
-    ResourceLockedError,
     LockNotHeldError,
-    SiteLockedAPIException,
     NoActiveLockAPIException,
+    ResourceLockedError,
+    SiteLockedAPIException,
 )
 from apps.core.mixins import SiteLockMixin
+from apps.core.services.resource_lock import SiteLockService
 
 from .models import Site
 from .serializers import SiteSerializer
-from drf_spectacular.utils import extend_schema
 
 
 class SiteListCreateAPIView(APIView):
@@ -118,7 +118,9 @@ class SiteLockAPIView(APIView):
         try:
             service.acquire(site.id, request.user)
         except ResourceLockedError as exc:
-            raise SiteLockedAPIException(detail=f"This site is currently being edited by {exc.locked_by}.")
+            raise SiteLockedAPIException(
+                detail=f"This site is currently being edited by {exc.locked_by}."
+            )
         return Response(service.status(site.id), status=status.HTTP_201_CREATED)
 
     def patch(self, request, pk):

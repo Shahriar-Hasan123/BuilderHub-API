@@ -1,6 +1,7 @@
 import base64
 import re
 import uuid
+
 from bs4 import BeautifulSoup
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage

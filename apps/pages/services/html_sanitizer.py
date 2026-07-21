@@ -1,5 +1,6 @@
 import bleach
-from apps.pages.constants import ALLOWED_TAGS, ALLOWED_ATTRS, ALLOWED_PROTOCOLS
+
+from apps.pages.constants import ALLOWED_ATTRS, ALLOWED_PROTOCOLS, ALLOWED_TAGS
 
 
 class HTMLSanitizer:

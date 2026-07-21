@@ -1,11 +1,11 @@
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import extend_schema
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from drf_spectacular.utils import extend_schema
 
-from apps.sites.models import Site
 from apps.core.mixins import SiteLockMixin
+from apps.sites.models import Site
 
 from .models import Page
 from .serializers import PageSerializer
@@ -72,7 +72,7 @@ class PageDetailAPIView(APIView, SiteLockMixin):
     )
     def put(self, request, site_pk, pk):
         site, page = self.get_object(site_pk, pk)
-        self.enforce_site_lock(request, site)        
+        self.enforce_site_lock(request, site)
         serializer = PageSerializer(
             instance=page,
             data=request.data,
