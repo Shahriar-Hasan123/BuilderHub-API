@@ -17,6 +17,7 @@ from .models import Site
 from .serializers import SiteSerializer
 from apps.core.permissions import HasUpdatePermission
 
+
 class SiteListCreateAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -118,14 +119,30 @@ class SiteLockAPIView(APIView):
 
     def post(self, request, pk):
         site = self.get_site(pk)
-        service = SiteLockService()
         try:
-            service.acquire(site.id, request.user)
+            result = SiteLockService().acquire(site.id, request.user)
         except ResourceLockedError as exc:
             raise SiteLockedAPIException(
                 detail=f"This site is currently being edited by {exc.locked_by}."
             )
-        return Response(service.status(site.id), status=status.HTTP_201_CREATED)
+        message = (
+            "Lock acquired successfully."
+            if result.created
+            else "You already hold this lock - activity refreshed."
+        )
+        return Response(
+            {
+                "message": message,
+                "locked": True,
+                "created": result.created,
+                "user_id": result.user_id,
+                "locked_by": result.username,
+                "locked_at": result.locked_at,
+                "last_activity_at": result.last_activity_at,
+                "ttl_remaining_seconds": result.ttl_remaining_seconds,
+            },
+            status=status.HTTP_201_CREATED if result.created else status.HTTP_200_OK,
+        )
 
     def patch(self, request, pk):
         site = self.get_site(pk)

@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.core.cache import cache
 from django.utils import timezone
-
+from apps.core.dto import LockAcquireResult
 from apps.core.exceptions import LockNotHeldError, ResourceLockedError
 
 
@@ -24,12 +24,27 @@ class SiteLockService:
 
         acquire = cache.add(key, new_lock, self.ttl)
         if acquire:
-            return
+            return LockAcquireResult(
+                created=True,
+                user_id=user.id,
+                username=user.username,
+                locked_at=now,
+                last_activity_at=now,
+                ttl_remaining_seconds=self.ttl,
+            )
         current = cache.get(key)
         if current and current["user_id"] == user.id:
             current["last_activity_at"] = now
             cache.set(key, current, timeout=self.ttl)
-            return
+            return LockAcquireResult(
+                created=False,
+                user_id=current["user_id"],
+                username=current["username"],
+                locked_at=current["locked_at"],
+                last_activity_at=now,
+                ttl_remaining_seconds=self.ttl,
+            )
+
         raise ResourceLockedError(
             locked_by=current["username"] if current else "unknown"
         )
