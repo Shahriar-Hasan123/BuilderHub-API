@@ -5,11 +5,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.mixins import SiteLockMixin
+from apps.core.permissions import HasUpdatePermission
 from apps.sites.models import Site
 
 from .models import Page
 from .serializers import PageSerializer
-from apps.core.permissions import HasUpdatePermission
 
 
 class PageListCreateAPIView(APIView, SiteLockMixin):

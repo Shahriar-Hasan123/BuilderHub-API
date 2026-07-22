@@ -186,12 +186,14 @@ All API routes are versioned under `/api/v1/`.
 
 | Method | Endpoint | Description | Auth Required |
 |--------|----------|-------------|---------------|
-| GET | `/api/v1/sites/` | List sites owned by the current user | Yes |
+| GET | `/api/v1/sites/` | List all sites available to authenticated users | Yes |
 | POST | `/api/v1/sites/` | Create a new site | Yes |
 | GET | `/api/v1/sites/{pk}/` | Retrieve a specific site | Yes |
 | PUT | `/api/v1/sites/{pk}/` | Replace a site | Yes |
 | PATCH | `/api/v1/sites/{pk}/` | Partially update a site | Yes |
 | DELETE | `/api/v1/sites/{pk}/` | Delete a site | Yes |
+
+> Note: read-only site access is available to authenticated users; ownership or `can_edit_site` permission is required for updates and deletes.
 
 ### Site Locks
 

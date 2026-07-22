@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 
+
 @dataclass
 class LockAcquireResult:
-    created:bool
+    created: bool
     user_id: bool
     username: str
     locked_at: str

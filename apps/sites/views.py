@@ -11,11 +11,11 @@ from apps.core.exceptions import (
     SiteLockedAPIException,
 )
 from apps.core.mixins import SiteLockMixin
+from apps.core.permissions import HasUpdatePermission
 from apps.core.services.resource_lock import SiteLockService
 
 from .models import Site
 from .serializers import SiteSerializer
-from apps.core.permissions import HasUpdatePermission
 
 
 class SiteListCreateAPIView(APIView):
