@@ -15,7 +15,7 @@ from apps.core.services.resource_lock import SiteLockService
 
 from .models import Site
 from .serializers import SiteSerializer
-
+from apps.core.permissions import HasUpdatePermission
 
 class SiteListCreateAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -43,10 +43,12 @@ class SiteListCreateAPIView(APIView):
 
 
 class SiteDetailAPIView(APIView, SiteLockMixin):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, HasUpdatePermission]
 
     def get_object(self, pk):
-        return get_object_or_404(Site, pk=pk)
+        site = get_object_or_404(Site, pk=pk)
+        self.check_object_permissions(self.request, site)
+        return site
 
     @extend_schema(
         tags=["Sites"],
@@ -103,10 +105,12 @@ class SiteDetailAPIView(APIView, SiteLockMixin):
 
 
 class SiteLockAPIView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, HasUpdatePermission]
 
     def get_site(self, pk):
-        return get_object_or_404(Site, pk=pk)
+        site = get_object_or_404(Site, pk=pk)
+        self.check_object_permissions(self.request, site)
+        return site
 
     def get(self, request, pk):
         site = self.get_site(pk)
@@ -125,6 +129,7 @@ class SiteLockAPIView(APIView):
 
     def patch(self, request, pk):
         site = self.get_site(pk)
+        self.check_object_permissions(request, site)
         service = SiteLockService()
         try:
             service.refresh(site.id, request.user)
@@ -139,6 +144,7 @@ class SiteLockAPIView(APIView):
 
     def delete(self, request, pk):
         site = get_object_or_404(Site, pk=pk)
+        self.check_object_permissions(request, site)
         service = SiteLockService()
         try:
             service.release(site.id, request.user)

@@ -9,13 +9,16 @@ from apps.sites.models import Site
 
 from .models import Page
 from .serializers import PageSerializer
+from apps.core.permissions import HasUpdatePermission
 
 
 class PageListCreateAPIView(APIView, SiteLockMixin):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, HasUpdatePermission]
 
     def get_site(self, site_pk):
-        return get_object_or_404(Site, pk=site_pk)
+        site = get_object_or_404(Site, pk=site_pk)
+        self.check_object_permissions(self.request, site)
+        return site
 
     @extend_schema(
         tags=["Pages"],
@@ -48,11 +51,12 @@ class PageListCreateAPIView(APIView, SiteLockMixin):
 
 
 class PageDetailAPIView(APIView, SiteLockMixin):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, HasUpdatePermission]
 
     def get_object(self, site_pk, pk):
         site = get_object_or_404(Site, pk=site_pk)
         page = get_object_or_404(Page, pk=pk, site=site)
+        self.check_object_permissions(self.request, page)
         return site, page
 
     @extend_schema(

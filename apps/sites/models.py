@@ -48,7 +48,7 @@ class Site(BaseModel):
         blank=True,
         related_name="sites_updated",
     )
-
+    
     class Meta:
         verbose_name = "Site"
         verbose_name_plural = "Sites"
@@ -56,6 +56,9 @@ class Site(BaseModel):
         constraints = [
             models.UniqueConstraint(fields=["name"], name="unique_site_name_global"),
         ]
-
+        permissions =[
+            ("can_edit_site", "Can edit any site")
+        ]
+    
     def __str__(self):
         return self.name

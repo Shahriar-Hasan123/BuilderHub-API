@@ -29,6 +29,7 @@ class SiteLockService:
         if current and current["user_id"] == user.id:
             current["last_activity_at"] = now
             cache.set(key, current, timeout=self.ttl)
+            return
         raise ResourceLockedError(
             locked_by=current["username"] if current else "unknown"
         )
