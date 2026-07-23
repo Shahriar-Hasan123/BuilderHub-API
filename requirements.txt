@@ -6,6 +6,7 @@ certifi==2026.6.17
 charset-normalizer==3.4.9
 coreapi==2.3.3
 coreschema==0.0.4
+coverage==7.15.2
 Django==6.0.7
 django-redis==7.0.0
 django-rest-swagger==2.2.0

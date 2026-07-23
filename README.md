@@ -109,6 +109,38 @@ python manage.py runserver
 
 The API will be available at http://127.0.0.1:8000/.
 
+## Testing
+
+Run the Django test suite for a specific app:
+
+```bash
+python manage.py test apps.pages
+```
+
+Run all tests:
+
+```bash
+python manage.py test
+```
+
+## Test Coverage
+
+Install coverage if needed:
+
+```bash
+pip install coverage
+```
+
+Run coverage for the project:
+
+```bash
+python -m coverage run --source=apps manage.py test
+python -m coverage report
+python -m coverage html
+```
+
+Open `htmlcov/index.html` in a browser to review coverage details.
+
 ## Environment Variables Reference
 
 | Variable | Description |
@@ -144,7 +176,7 @@ The lock system uses a Redis key per site that expires after the configured `RES
 
 1. **Acquire** (`POST /api/v1/sites/{id}/lock/`): User acquires an exclusive lock
    - Returns `201 Created` with lock status if successful
-   - Returns `409 Conflict` if another user already holds the lock
+   - Returns `423 Locked` if another user already holds the lock
 
 2. **Check Status** (`GET /api/v1/sites/{id}/lock/`): Check who (if anyone) holds the lock
    - Returns lock details: `user_id`, `locked_by`, `locked_at`, `ttl_remaining_seconds`
