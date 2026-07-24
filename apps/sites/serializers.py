@@ -14,6 +14,8 @@ class SiteSerializer(serializers.ModelSerializer):
             "favicon",
             "logo",
             "global_css",
+            "header",
+            "footer",
             "created_at",
             "updated_at",
             "updated_by",

@@ -3,6 +3,7 @@ from drf_spectacular.utils import extend_schema
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.exceptions import ValidationError as DRFValidationError
 
 from apps.core.exceptions import (
     LockNotHeldError,
@@ -13,6 +14,8 @@ from apps.core.exceptions import (
 from apps.core.mixins import SiteLockMixin
 from apps.core.permissions import HasUpdatePermission
 from apps.core.services.resource_lock import SiteLockService
+from apps.core.exceptions import PublishValidationError
+from apps.sites.services.publish_service import PublishService
 
 from .models import Site
 from .serializers import SiteSerializer
@@ -172,3 +175,21 @@ class SiteLockAPIView(APIView):
                 detail=f"This site is locked by {exc.locked_by}, not you."
             )
         return Response({"detail": "Lock released."}, status=status.HTTP_204_NO_CONTENT)
+
+
+class SitePublishAPIView(APIView, SiteLockMixin):
+    permission_classes = [permissions.IsAuthenticated, HasUpdatePermission]
+
+    def get_site(self, pk):
+        return get_object_or_404(Site, pk=pk)
+
+    def post(self, request, pk):
+        site = self.get_site(pk)
+        self.check_object_permissions(request, site)
+        self.enforce_site_lock(site)
+        try:
+            result = PublishService().publish(site)
+        except PublishValidationError as exc:
+            raise DRFValidationError(str(exc))
+
+        return Response(result, status=status.HTTP_200_OK)
