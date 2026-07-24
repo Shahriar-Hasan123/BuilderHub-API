@@ -26,3 +26,10 @@ class NoActiveLockAPIException(APIException):
         "No active lock exists for this site (it may have already expired)."
     )
     default_code = "no_active_lock"
+
+
+class PublishValidationError(Exception):
+    """Raised when a site fails a publish readiness check
+    (missing header/footer, or no enabled pages with HTML)."""
+
+    pass
