@@ -186,7 +186,7 @@ class SitePublishAPIView(APIView, SiteLockMixin):
     def post(self, request, pk):
         site = self.get_site(pk)
         self.check_object_permissions(request, site)
-        self.enforce_site_lock(site)
+        self.enforce_site_lock(request, site)
         try:
             result = PublishService().publish(site)
         except PublishValidationError as exc:
