@@ -179,6 +179,8 @@ paths:
   /api/v1/sites/{id}/lock/:
     get:
       operationId: sites_lock_retrieve
+      description: Return the current lock status for a site.
+      summary: Get lock status
       parameters:
       - in: path
         name: id
@@ -186,7 +188,7 @@ paths:
           type: integer
         required: true
       tags:
-      - sites
+      - Sites
       security:
       - jwtAuth: []
       responses:
@@ -194,6 +196,8 @@ paths:
           description: No response body
     post:
       operationId: sites_lock_create
+      description: Acquire or refresh a lock for editing a site.
+      summary: Acquire site lock
       parameters:
       - in: path
         name: id
@@ -201,7 +205,7 @@ paths:
           type: integer
         required: true
       tags:
-      - sites
+      - Sites
       security:
       - jwtAuth: []
       responses:
@@ -209,6 +213,8 @@ paths:
           description: No response body
     patch:
       operationId: sites_lock_partial_update
+      description: Refresh the current lock holder's activity for a site.
+      summary: Refresh site lock
       parameters:
       - in: path
         name: id
@@ -216,7 +222,7 @@ paths:
           type: integer
         required: true
       tags:
-      - sites
+      - Sites
       security:
       - jwtAuth: []
       responses:
@@ -224,6 +230,8 @@ paths:
           description: No response body
     delete:
       operationId: sites_lock_destroy
+      description: Release a site lock that you currently hold.
+      summary: Release site lock
       parameters:
       - in: path
         name: id
@@ -231,11 +239,30 @@ paths:
           type: integer
         required: true
       tags:
-      - sites
+      - Sites
       security:
       - jwtAuth: []
       responses:
         '204':
+          description: No response body
+  /api/v1/sites/{id}/publish/:
+    post:
+      operationId: sites_publish_create
+      description: Generate JSON asset files for the site header, footer, and enabled
+        pages, then mark the site and pages as published.
+      summary: Publish site
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Sites
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
           description: No response body
   /api/v1/sites/{site_pk}/pages/:
     get:

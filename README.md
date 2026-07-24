@@ -174,25 +174,28 @@ The lock system uses a Redis key per site that expires after the configured `RES
 
 ### Lock Lifecycle
 
-1. **Acquire** (`POST /api/v1/sites/{id}/lock/`): User acquires an exclusive lock
+1. **Acquire** (`POST /api/v1/sites/{pk}/lock/`): User acquires an exclusive lock
    - Returns `201 Created` with lock status if successful
+   - Returns `200 OK` if the same user already holds the lock and the lock is refreshed
    - Returns `423 Locked` if another user already holds the lock
 
-2. **Check Status** (`GET /api/v1/sites/{id}/lock/`): Check who (if anyone) holds the lock
-   - Returns lock details: `user_id`, `locked_by`, `locked_at`, `ttl_remaining_seconds`
+2. **Check Status** (`GET /api/v1/sites/{pk}/lock/`): Check who (if anyone) holds the lock
+   - Returns lock details such as `user_id`, `locked_by`, `locked_at`, and `ttl_remaining_seconds`
 
-3. **Refresh** (`PATCH /api/v1/sites/{id}/lock/`): Extend lock expiration (must hold the lock)
+3. **Refresh** (`PATCH /api/v1/sites/{pk}/lock/`): Extend lock expiration (must hold the lock)
    - Useful for long-running operations to keep the lock alive
    - Returns `200 OK` with updated TTL
+   - Returns `409 Conflict` if no active lock exists for the site
 
-4. **Release** (`DELETE /api/v1/sites/{id}/lock/`): Voluntarily release the lock
+4. **Release** (`DELETE /api/v1/sites/{pk}/lock/`): Voluntarily release the lock
    - Returns `204 No Content`
+   - Returns `409 Conflict` if no active lock exists for the site
 
 ### Lock Enforcement
 
 Edit operations (page/site creation, update, delete) automatically enforce locks via the `SiteLockMixin`:
 
-- If the site is already locked by another user, the operation returns `409 Conflict`
+- If the site is already locked by another user, the operation returns `423 Locked`
 - The current user's lock is automatically refreshed on each operation
 - Locks expire automatically if the user becomes inactive
 
@@ -224,8 +227,20 @@ All API routes are versioned under `/api/v1/`.
 | PUT | `/api/v1/sites/{pk}/` | Replace a site | Yes |
 | PATCH | `/api/v1/sites/{pk}/` | Partially update a site | Yes |
 | DELETE | `/api/v1/sites/{pk}/` | Delete a site | Yes |
+| POST | `/api/v1/sites/{pk}/publish/` | Publish a site by generating header/footer/page JSON assets | Yes |
 
 > Note: read-only site access is available to authenticated users; ownership or `can_edit_site` permission is required for updates and deletes.
+
+### Site Publishing
+
+Publishing a site generates JSON files for the site header, footer, and enabled pages, then marks the site and its pages as published.
+
+- Endpoint: `POST /api/v1/sites/{pk}/publish/`
+- Requires a valid site lock for the current user
+- Returns a payload with the published site ID, status, asset path, and generated file list
+- Returns `400 Bad Request` when the site is missing header/footer HTML or has no enabled page HTML
+- Returns `423 Locked` when another user holds the site lock
+- Uses a best-effort cleanup routine to remove any already-written JSON artifacts if a publish step fails mid-way
 
 ### Site Locks
 
@@ -235,6 +250,8 @@ All API routes are versioned under `/api/v1/`.
 | POST | `/api/v1/sites/{pk}/lock/` | Acquire lock for a site | Yes |
 | PATCH | `/api/v1/sites/{pk}/lock/` | Refresh lock expiration | Yes |
 | DELETE | `/api/v1/sites/{pk}/lock/` | Release lock for a site | Yes |
+
+> Note: the publish endpoint also requires a valid site lock before generating the site assets.
 
 ### Pages
 

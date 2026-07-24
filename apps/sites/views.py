@@ -116,10 +116,20 @@ class SiteLockAPIView(APIView):
         self.check_object_permissions(self.request, site)
         return site
 
+    @extend_schema(
+        tags=["Sites"],
+        summary="Get lock status",
+        description="Return the current lock status for a site.",
+    )
     def get(self, request, pk):
         site = self.get_site(pk)
         return Response(SiteLockService().status(site.id))
 
+    @extend_schema(
+        tags=["Sites"],
+        summary="Acquire site lock",
+        description="Acquire or refresh a lock for editing a site.",
+    )
     def post(self, request, pk):
         site = self.get_site(pk)
         try:
@@ -147,6 +157,11 @@ class SiteLockAPIView(APIView):
             status=status.HTTP_201_CREATED if result.created else status.HTTP_200_OK,
         )
 
+    @extend_schema(
+        tags=["Sites"],
+        summary="Refresh site lock",
+        description="Refresh the current lock holder's activity for a site.",
+    )
     def patch(self, request, pk):
         site = self.get_site(pk)
         self.check_object_permissions(request, site)
@@ -162,6 +177,11 @@ class SiteLockAPIView(APIView):
 
         return Response(service.status(site.id), status=status.HTTP_200_OK)
 
+    @extend_schema(
+        tags=["Sites"],
+        summary="Release site lock",
+        description="Release a site lock that you currently hold.",
+    )
     def delete(self, request, pk):
         site = get_object_or_404(Site, pk=pk)
         self.check_object_permissions(request, site)
@@ -183,6 +203,14 @@ class SitePublishAPIView(APIView, SiteLockMixin):
     def get_site(self, pk):
         return get_object_or_404(Site, pk=pk)
 
+    @extend_schema(
+        tags=["Sites"],
+        summary="Publish site",
+        description=(
+            "Generate JSON asset files for the site header, footer, and enabled "
+            "pages, then mark the site and pages as published."
+        ),
+    )
     def post(self, request, pk):
         site = self.get_site(pk)
         self.check_object_permissions(request, site)
