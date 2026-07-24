@@ -2,8 +2,7 @@ from django.conf import settings
 from django.db import models
 
 from apps.core.models import BaseModel
-from apps.core.validators import css_file_validator, validate_file_size
-
+from apps.core.validators import html_file_validator, css_file_validator, validate_file_size
 
 class Site(BaseModel):
     class Status(models.TextChoices):
@@ -48,7 +47,18 @@ class Site(BaseModel):
         blank=True,
         related_name="sites_updated",
     )
-
+    header = models.FileField(
+        upload_to="sites/header/",
+        validators=[html_file_validator, validate_file_size],
+        blank=True,
+        null=True,
+    )
+    footer = models.FileField(
+        upload_to="sites/footer/",
+        validators=[html_file_validator, validate_file_size],
+        blank=True,
+        null=True,
+    )
     class Meta:
         verbose_name = "Site"
         verbose_name_plural = "Sites"
