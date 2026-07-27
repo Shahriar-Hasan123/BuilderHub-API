@@ -4,25 +4,34 @@ from django.core.cache import cache
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
-from apps.sites.models import Site
-from apps.pages.models import Page
+
 from apps.core.services.resource_lock import SiteLockService
+from apps.pages.models import Page
+from apps.sites.models import Site
 
 User = get_user_model()
 
 
 class PageListCreateAPITests(APITestCase):
     def setUp(self):
-        self.owner = User.objects.create_user(username="page_view_owner", password="pass12345")
-        self.editor = User.objects.create_user(username="page_view_editor", password="pass12345")
-        self.stranger = User.objects.create_user(username="page_view_stranger", password="pass12345")
+        self.owner = User.objects.create_user(
+            username="page_view_owner", password="pass12345"
+        )
+        self.editor = User.objects.create_user(
+            username="page_view_editor", password="pass12345"
+        )
+        self.stranger = User.objects.create_user(
+            username="page_view_stranger", password="pass12345"
+        )
 
         can_edit_perm = Permission.objects.get(codename="can_edit_site")
         self.editor.user_permissions.add(can_edit_perm)
 
         self.site = Site.objects.create(user=self.owner, name="Page View Test Site")
         self.addCleanup(cache.delete, f"lock:site:{self.site.id}")
-        self.list_create_url = reverse("page-list-create", kwargs={"site_pk": self.site.id})
+        self.list_create_url = reverse(
+            "page-list-create", kwargs={"site_pk": self.site.id}
+        )
 
     def _auth(self, username, password):
         response = self.client.post(
@@ -92,9 +101,15 @@ class PageListCreateAPITests(APITestCase):
 
 class PageDetailAPITests(APITestCase):
     def setUp(self):
-        self.owner = User.objects.create_user(username="page_detail_owner", password="pass12345")
-        self.editor = User.objects.create_user(username="page_detail_editor", password="pass12345")
-        self.stranger = User.objects.create_user(username="page_detail_stranger", password="pass12345")
+        self.owner = User.objects.create_user(
+            username="page_detail_owner", password="pass12345"
+        )
+        self.editor = User.objects.create_user(
+            username="page_detail_editor", password="pass12345"
+        )
+        self.stranger = User.objects.create_user(
+            username="page_detail_stranger", password="pass12345"
+        )
 
         can_edit_perm = Permission.objects.get(codename="can_edit_site")
         self.editor.user_permissions.add(can_edit_perm)

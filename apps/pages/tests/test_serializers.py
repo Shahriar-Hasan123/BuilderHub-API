@@ -1,16 +1,19 @@
-from django.test import TestCase
 from django.contrib.auth import get_user_model
+from django.test import TestCase
 from rest_framework.test import APIRequestFactory
-from apps.sites.models import Site
+
 from apps.pages.models import Page
 from apps.pages.serializers import PageSerializer
+from apps.sites.models import Site
 
 User = get_user_model()
 
 
 class PageSerializerTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user(username="page_serializer_user", password="pass12345")
+        self.user = User.objects.create_user(
+            username="page_serializer_user", password="pass12345"
+        )
         self.site = Site.objects.create(user=self.user, name="Serializer Test Site")
         self.factory = APIRequestFactory()
 
@@ -20,7 +23,9 @@ class PageSerializerTests(TestCase):
         return {"site": self.site, "request": request}
 
     def test_valid_data_serializes_successfully(self):
-        serializer = PageSerializer(data={"title": "My First Page"}, context=self._context())
+        serializer = PageSerializer(
+            data={"title": "My First Page"}, context=self._context()
+        )
         self.assertTrue(serializer.is_valid(), serializer.errors)
 
     def test_duplicate_slug_within_same_site_is_rejected(self):
@@ -30,7 +35,9 @@ class PageSerializerTests(TestCase):
             slug="existing-page",
             created_by=self.user,
         )
-        serializer = PageSerializer(data={"title": "Existing Page"}, context=self._context())
+        serializer = PageSerializer(
+            data={"title": "Existing Page"}, context=self._context()
+        )
         self.assertFalse(serializer.is_valid())
         self.assertIn("title", serializer.errors)
 
@@ -54,7 +61,9 @@ class PageSerializerTests(TestCase):
             slug="unchanged-title",
             created_by=self.user,
         )
-        serializer = PageSerializer(page, data={"title": "Unchanged Title"}, context=self._context())
+        serializer = PageSerializer(
+            page, data={"title": "Unchanged Title"}, context=self._context()
+        )
         self.assertTrue(serializer.is_valid(), serializer.errors)
 
     def test_site_slug_created_by_updated_by_are_read_only(self):

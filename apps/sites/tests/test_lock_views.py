@@ -4,17 +4,24 @@ from django.core.cache import cache
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
-from apps.sites.models import Site
+
 from apps.core.services.resource_lock import SiteLockService
+from apps.sites.models import Site
 
 User = get_user_model()
 
 
 class SiteLockAPITests(APITestCase):
     def setUp(self):
-        self.owner = User.objects.create_user(username="lock_owner", password="pass12345")
-        self.editor = User.objects.create_user(username="lock_editor", password="pass12345")
-        self.stranger = User.objects.create_user(username="lock_stranger", password="pass12345")
+        self.owner = User.objects.create_user(
+            username="lock_owner", password="pass12345"
+        )
+        self.editor = User.objects.create_user(
+            username="lock_editor", password="pass12345"
+        )
+        self.stranger = User.objects.create_user(
+            username="lock_stranger", password="pass12345"
+        )
 
         can_edit_perm = Permission.objects.get(codename="can_edit_site")
         self.editor.user_permissions.add(can_edit_perm)

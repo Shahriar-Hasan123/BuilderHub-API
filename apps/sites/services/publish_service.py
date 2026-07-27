@@ -1,11 +1,12 @@
+import json
+
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
+
 from apps.core.exceptions import PublishValidationError
+from apps.pages.models import Page
 from apps.sites.services.html_minifier import HTMLMinifier
 from apps.sites.services.html_to_json import HTMLToJSONConverter
-from apps.pages.models import Page
-
-from django.core.files.storage import default_storage
-from django.core.files.base import ContentFile
-import json
 
 
 class PublishService:

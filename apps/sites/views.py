@@ -1,20 +1,20 @@
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema
 from rest_framework import permissions, status
+from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.exceptions import ValidationError as DRFValidationError
 
 from apps.core.exceptions import (
     LockNotHeldError,
     NoActiveLockAPIException,
+    PublishValidationError,
     ResourceLockedError,
     SiteLockedAPIException,
 )
 from apps.core.mixins import SiteLockMixin
 from apps.core.permissions import HasUpdatePermission
 from apps.core.services.resource_lock import SiteLockService
-from apps.core.exceptions import PublishValidationError
 from apps.sites.services.publish_service import PublishService
 
 from .models import Site
@@ -42,7 +42,9 @@ class SiteListCreateAPIView(APIView):
     def post(self, request):
         serializer = SiteSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
-        serializer.save(user=request.user, updated_by=request.user)
+        serializer.save(
+            user=request.user, created_by=request.user, updated_by=request.user
+        )
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 

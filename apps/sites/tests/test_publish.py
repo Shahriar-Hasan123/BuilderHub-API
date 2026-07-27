@@ -1,14 +1,16 @@
 import json
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.core.cache import cache
-from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.files.storage import default_storage
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
-from apps.sites.models import Site
+
 from apps.pages.models import Page
+from apps.sites.models import Site
 
 User = get_user_model()
 
@@ -19,9 +21,15 @@ def html_file(name, content):
 
 class SitePublishAPITests(APITestCase):
     def setUp(self):
-        self.owner = User.objects.create_user(username="publish_owner", password="pass12345")
-        self.editor = User.objects.create_user(username="publish_editor", password="pass12345")
-        self.stranger = User.objects.create_user(username="publish_stranger", password="pass12345")
+        self.owner = User.objects.create_user(
+            username="publish_owner", password="pass12345"
+        )
+        self.editor = User.objects.create_user(
+            username="publish_editor", password="pass12345"
+        )
+        self.stranger = User.objects.create_user(
+            username="publish_stranger", password="pass12345"
+        )
 
         can_edit_perm = Permission.objects.get(codename="can_edit_site")
         self.editor.user_permissions.add(can_edit_perm)
@@ -79,13 +87,15 @@ class SitePublishAPITests(APITestCase):
         self._auth("publish_owner", "pass12345")
         response = self.client.post(self.publish_url)
 
-        header_path = next(f for f in response.data["files"] if f.endswith("header.json"))
+        header_path = next(
+            f for f in response.data["files"] if f.endswith("header.json")
+        )
         with default_storage.open(header_path) as f:
             data = json.loads(f.read())
 
-        self.assertNotIn("\n", data["html"])  
+        self.assertNotIn("\n", data["html"])
         self.assertNotIn("  ", data["html"])
-        self.assertIn("><", data["html"])     
+        self.assertIn("><", data["html"])
 
     # ---- Validation (400) ----
 

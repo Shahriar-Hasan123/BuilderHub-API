@@ -3,6 +3,7 @@ from django.contrib.auth.models import Permission
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
+
 from apps.sites.models import Site
 
 User = get_user_model()
@@ -10,7 +11,9 @@ User = get_user_model()
 
 class SiteListCreateAPITests(APITestCase):
     def setUp(self):
-        self.owner = User.objects.create_user(username="site_owner", password="pass12345")
+        self.owner = User.objects.create_user(
+            username="site_owner", password="pass12345"
+        )
         self.list_create_url = reverse("site-list-create")
 
     def _auth(self, username, password):
@@ -41,9 +44,15 @@ class SiteListCreateAPITests(APITestCase):
 
 class SiteDetailAPITests(APITestCase):
     def setUp(self):
-        self.owner = User.objects.create_user(username="detail_owner", password="pass12345")
-        self.editor = User.objects.create_user(username="detail_editor", password="pass12345")
-        self.stranger = User.objects.create_user(username="detail_stranger", password="pass12345")
+        self.owner = User.objects.create_user(
+            username="detail_owner", password="pass12345"
+        )
+        self.editor = User.objects.create_user(
+            username="detail_editor", password="pass12345"
+        )
+        self.stranger = User.objects.create_user(
+            username="detail_stranger", password="pass12345"
+        )
 
         can_edit_perm = Permission.objects.get(codename="can_edit_site")
         self.editor.user_permissions.add(can_edit_perm)

@@ -1,8 +1,9 @@
-from django.test import TestCase
 from django.contrib.auth import get_user_model
-from apps.sites.models import Site
+from django.test import TestCase
+
+from apps.core.exceptions import LockNotHeldError, ResourceLockedError
 from apps.core.services.resource_lock import SiteLockService
-from apps.core.exceptions import ResourceLockedError, LockNotHeldError
+from apps.sites.models import Site
 
 User = get_user_model()
 

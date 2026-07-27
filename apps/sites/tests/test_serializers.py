@@ -1,6 +1,7 @@
-from django.test import TestCase
 from django.contrib.auth import get_user_model
+from django.test import TestCase
 from rest_framework.test import APIRequestFactory
+
 from apps.sites.models import Site
 from apps.sites.serializers import SiteSerializer
 
@@ -9,7 +10,9 @@ User = get_user_model()
 
 class SiteSerializerTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user(username="serializer_user", password="pass12345")
+        self.user = User.objects.create_user(
+            username="serializer_user", password="pass12345"
+        )
         self.factory = APIRequestFactory()
 
     def _context(self):
@@ -41,7 +44,11 @@ class SiteSerializerTests(TestCase):
     def test_user_and_updated_by_are_read_only(self):
         other_user = User.objects.create_user(username="attacker", password="pass12345")
         serializer = SiteSerializer(
-            data={"name": "Spoof Attempt", "user": other_user.id, "updated_by": other_user.id},
+            data={
+                "name": "Spoof Attempt",
+                "user": other_user.id,
+                "updated_by": other_user.id,
+            },
             context=self._context(),
         )
         self.assertTrue(serializer.is_valid(), serializer.errors)

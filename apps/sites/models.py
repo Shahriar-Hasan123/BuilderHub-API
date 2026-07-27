@@ -2,7 +2,12 @@ from django.conf import settings
 from django.db import models
 
 from apps.core.models import BaseModel
-from apps.core.validators import html_file_validator, css_file_validator, validate_file_size
+from apps.core.validators import (
+    css_file_validator,
+    html_file_validator,
+    validate_file_size,
+)
+
 
 class Site(BaseModel):
     class Status(models.TextChoices):
@@ -16,6 +21,8 @@ class Site(BaseModel):
         related_name="sites",
     )
     name = models.CharField(max_length=255)
+
+    url = models.URLField(blank=True, null=True)
 
     status = models.CharField(
         max_length=20,
@@ -40,6 +47,13 @@ class Site(BaseModel):
         blank=True,
         null=True,
     )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="sites_created",
+    )
     updated_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -59,6 +73,7 @@ class Site(BaseModel):
         blank=True,
         null=True,
     )
+
     class Meta:
         verbose_name = "Site"
         verbose_name_plural = "Sites"

@@ -16,20 +16,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/TokenObtainPair'
+              $ref: '#/components/schemas/CustomTokenObtainPair'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/TokenObtainPair'
+              $ref: '#/components/schemas/CustomTokenObtainPair'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/TokenObtainPair'
+              $ref: '#/components/schemas/CustomTokenObtainPair'
         required: true
       responses:
         '200':
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TokenObtainPair'
+                $ref: '#/components/schemas/CustomTokenObtainPair'
           description: ''
   /api/v1/auth/refresh/:
     post:
@@ -390,7 +390,7 @@ paths:
           description: No response body
 components:
   schemas:
-    TokenObtainPair:
+    CustomTokenObtainPair:
       type: object
       properties:
         username:
@@ -399,16 +399,8 @@ components:
         password:
           type: string
           writeOnly: true
-        access:
-          type: string
-          readOnly: true
-        refresh:
-          type: string
-          readOnly: true
       required:
-      - access
       - password
-      - refresh
       - username
     TokenRefresh:
       type: object

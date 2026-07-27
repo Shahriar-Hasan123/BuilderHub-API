@@ -1,6 +1,11 @@
 from django.urls import path
 
-from .views import SiteDetailAPIView, SiteListCreateAPIView, SiteLockAPIView, SitePublishAPIView
+from .views import (
+    SiteDetailAPIView,
+    SiteListCreateAPIView,
+    SiteLockAPIView,
+    SitePublishAPIView,
+)
 
 urlpatterns = [
     path("sites/", SiteListCreateAPIView.as_view(), name="site-list-create"),

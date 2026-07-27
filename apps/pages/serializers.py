@@ -1,15 +1,18 @@
 from django.utils.text import slugify
 from rest_framework import serializers
 
+from apps.sites.serializers import SiteSummarySerializer
+
 from .models import Page
 
 
 class PageSerializer(serializers.ModelSerializer):
+    site = SiteSummarySerializer(read_only=True)
+
     class Meta:
         model = Page
         fields = [
             "id",
-            "site",
             "title",
             "slug",
             "meta_description",
@@ -23,10 +26,10 @@ class PageSerializer(serializers.ModelSerializer):
             "updated_by",
             "created_at",
             "updated_at",
+            "site",
         ]
         read_only_fields = [
             "id",
-            "site",
             "slug",
             "created_by",
             "updated_by",

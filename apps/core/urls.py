@@ -1,8 +1,7 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
-from .views import CustomTokenObtainPairView
 
-from .views import health_check, register
+from .views import CustomTokenObtainPairView, health_check, register
 
 urlpatterns = [
     path("health/", health_check, name="health_check"),

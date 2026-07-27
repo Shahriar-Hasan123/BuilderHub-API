@@ -1,5 +1,7 @@
 import re
+
 from bs4 import BeautifulSoup
+
 
 class HTMLMinifier:
     def minify(self, html):

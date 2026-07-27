@@ -10,17 +10,26 @@ class SiteSerializer(serializers.ModelSerializer):
             "id",
             "user",
             "name",
+            "url",
             "status",
             "favicon",
             "logo",
             "global_css",
             "header",
             "footer",
+            "created_by",
             "created_at",
             "updated_at",
             "updated_by",
         ]
-        read_only_fields = ["id", "user", "updated_by", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "user",
+            "created_by",
+            "updated_by",
+            "created_at",
+            "updated_at",
+        ]
 
     def validate_name(self, value):
         queryset = Site.objects.filter(name=value)
@@ -29,3 +38,9 @@ class SiteSerializer(serializers.ModelSerializer):
         if queryset.exists():
             raise serializers.ValidationError("A site with this name already exists.")
         return value
+
+
+class SiteSummarySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Site
+        fields = ["id", "name", "status", "url"]
