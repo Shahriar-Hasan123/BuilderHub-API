@@ -6,6 +6,8 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from .serializers import RegisterSerializer
+from rest_framework_simplejwt.views import TokenObtainPairView
+from .serializers import CustomTokenObtainPairSerializer
 
 
 @extend_schema(
@@ -39,3 +41,7 @@ def register(request):
     return Response(
         {"id": user.id, "username": user.username}, status=status.HTTP_201_CREATED
     )
+
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
