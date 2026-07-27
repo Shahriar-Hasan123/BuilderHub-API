@@ -83,8 +83,9 @@ class SitePublishAPITests(APITestCase):
         with default_storage.open(header_path) as f:
             data = json.loads(f.read())
 
-        self.assertNotIn("  ", data["html"])  # collapsed whitespace
-        self.assertIn("<header>", data["html"])
+        self.assertNotIn("\n", data["html"])  
+        self.assertNotIn("  ", data["html"])
+        self.assertIn("><", data["html"])     
 
     # ---- Validation (400) ----
 
