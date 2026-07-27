@@ -1,4 +1,5 @@
 from django.shortcuts import get_object_or_404
+from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
 from rest_framework import permissions, status
 from rest_framework.response import Response
@@ -24,6 +25,7 @@ class PageListCreateAPIView(APIView, SiteLockMixin):
         tags=["Pages"],
         summary="List pages",
         description="Return all pages belonging to a specific site.",
+        responses=PageSerializer(many=True),
     )
     def get(self, request, site_pk):
         site = self.get_site(site_pk)
@@ -35,6 +37,8 @@ class PageListCreateAPIView(APIView, SiteLockMixin):
         tags=["Pages"],
         summary="Create page",
         description="Create a new page under a specific site.",
+        request=PageSerializer,
+        responses=PageSerializer,
     )
     def post(self, request, site_pk):
         site = self.get_site(site_pk)
@@ -63,6 +67,7 @@ class PageDetailAPIView(APIView, SiteLockMixin):
         tags=["Pages"],
         summary="Get page",
         description="Retrieve a single page by its ID.",
+        responses=PageSerializer,
     )
     def get(self, request, site_pk, pk):
         site, page = self.get_object(site_pk, pk)
@@ -73,6 +78,8 @@ class PageDetailAPIView(APIView, SiteLockMixin):
         tags=["Pages"],
         summary="Update page",
         description="Update an existing page completely.",
+        request=PageSerializer,
+        responses=PageSerializer,
     )
     def put(self, request, site_pk, pk):
         site, page = self.get_object(site_pk, pk)
@@ -92,6 +99,8 @@ class PageDetailAPIView(APIView, SiteLockMixin):
         tags=["Pages"],
         summary="Patch page",
         description="Partially update an existing page.",
+        request=PageSerializer,
+        responses=PageSerializer,
     )
     def patch(self, request, site_pk, pk):
         site, page = self.get_object(site_pk, pk)
@@ -112,6 +121,7 @@ class PageDetailAPIView(APIView, SiteLockMixin):
         tags=["Pages"],
         summary="Delete page",
         description="Delete a page by its ID.",
+        responses={204: None},
     )
     def delete(self, request, site_pk, pk):
         site, page = self.get_object(site_pk, pk)

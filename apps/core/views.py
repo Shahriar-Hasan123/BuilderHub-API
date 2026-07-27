@@ -1,4 +1,5 @@
 from django.db import connection
+from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
@@ -13,6 +14,7 @@ from .serializers import CustomTokenObtainPairSerializer, RegisterSerializer
     tags=["Auth"],
     summary="Health check",
     description="Returns the API health status and database connectivity.",
+    responses={200: OpenApiTypes.OBJECT},
 )
 @api_view(["GET"])
 def health_check(request):
@@ -30,6 +32,8 @@ def health_check(request):
     tags=["Auth"],
     summary="Register user",
     description="Create a new user account with a username and password.",
+    request=RegisterSerializer,
+    responses={201: OpenApiTypes.OBJECT},
 )
 @api_view(["POST"])
 @permission_classes([AllowAny])

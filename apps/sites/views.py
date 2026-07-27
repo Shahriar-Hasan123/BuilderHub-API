@@ -1,4 +1,5 @@
 from django.shortcuts import get_object_or_404
+from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
 from rest_framework import permissions, status
 from rest_framework.exceptions import ValidationError as DRFValidationError
@@ -28,6 +29,7 @@ class SiteListCreateAPIView(APIView):
         tags=["Sites"],
         summary="List sites",
         description="Return all sites available to authenticated users.",
+        responses=SiteSerializer(many=True),
     )
     def get(self, request):
         sites = Site.objects.all()
@@ -38,6 +40,8 @@ class SiteListCreateAPIView(APIView):
         tags=["Sites"],
         summary="Create site",
         description="Create a new site for the authenticated user.",
+        request=SiteSerializer,
+        responses=SiteSerializer,
     )
     def post(self, request):
         serializer = SiteSerializer(data=request.data, context={"request": request})
@@ -60,6 +64,7 @@ class SiteDetailAPIView(APIView, SiteLockMixin):
         tags=["Sites"],
         summary="Get site",
         description="Retrieve a single site by its ID.",
+        responses=SiteSerializer,
     )
     def get(self, request, pk):
         site = self.get_object(pk)
@@ -70,6 +75,8 @@ class SiteDetailAPIView(APIView, SiteLockMixin):
         tags=["Sites"],
         summary="Update site",
         description="Update an existing site completely.",
+        request=SiteSerializer,
+        responses=SiteSerializer,
     )
     def put(self, request, pk):
         site = self.get_object(pk)
@@ -85,6 +92,8 @@ class SiteDetailAPIView(APIView, SiteLockMixin):
         tags=["Sites"],
         summary="Patch site",
         description="Partially update an existing site.",
+        request=SiteSerializer,
+        responses=SiteSerializer,
     )
     def patch(self, request, pk):
         site = self.get_object(pk)
@@ -100,6 +109,7 @@ class SiteDetailAPIView(APIView, SiteLockMixin):
         tags=["Sites"],
         summary="Delete site",
         description="Delete a site by its ID.",
+        responses={204: None},
     )
     def delete(self, request, pk):
         site = self.get_object(pk)
@@ -122,6 +132,7 @@ class SiteLockAPIView(APIView):
         tags=["Sites"],
         summary="Get lock status",
         description="Return the current lock status for a site.",
+        responses=OpenApiTypes.OBJECT,
     )
     def get(self, request, pk):
         site = self.get_site(pk)
@@ -131,6 +142,7 @@ class SiteLockAPIView(APIView):
         tags=["Sites"],
         summary="Acquire site lock",
         description="Acquire or refresh a lock for editing a site.",
+        responses=OpenApiTypes.OBJECT,
     )
     def post(self, request, pk):
         site = self.get_site(pk)
@@ -163,6 +175,7 @@ class SiteLockAPIView(APIView):
         tags=["Sites"],
         summary="Refresh site lock",
         description="Refresh the current lock holder's activity for a site.",
+        responses=OpenApiTypes.OBJECT,
     )
     def patch(self, request, pk):
         site = self.get_site(pk)
@@ -183,6 +196,7 @@ class SiteLockAPIView(APIView):
         tags=["Sites"],
         summary="Release site lock",
         description="Release a site lock that you currently hold.",
+        responses={204: None},
     )
     def delete(self, request, pk):
         site = get_object_or_404(Site, pk=pk)
@@ -212,6 +226,7 @@ class SitePublishAPIView(APIView, SiteLockMixin):
             "Generate JSON asset files for the site header, footer, and enabled "
             "pages, then mark the site and pages as published."
         ),
+        responses=OpenApiTypes.OBJECT,
     )
     def post(self, request, pk):
         site = self.get_site(pk)
