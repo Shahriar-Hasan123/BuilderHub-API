@@ -66,9 +66,13 @@ All notable changes to this project are documented in this file.
 - Restructured `tests.py` files into `tests/` packages across `apps/core`, `apps/sites`, `apps/pages`
 - Added serializer tests (validation, read-only field protection), view tests (permissions, CRUD), and lock tests (acquire/heartbeat/release/status)
 - Added publish endpoint test coverage per acceptance checklist (happy path, validation errors, permission/lock enforcement, whitespace cleaning verification)
+- Added site publish test coverage for unauthenticated 401, empty header/footer content rejection, disabled-page exclusion, orphaned page JSON cleanup on republish, failed-republish preserving prior assets, stronger footer/page HTML minify assertions, and exact JSON schema verification for response and artifact files
 
 ### Fixed
 - Site publish: safe republish — writes now use a temp-then-swap pattern instead of delete-then-save, preventing loss of live assets on partial failure
 - Site publish: removed orphaned page JSON files (disabled/deleted/renamed pages) after each publish
 - Site publish: DB status update now wrapped in `transaction.atomic()`, applied only after all files are safely written
 - Site publish: empty header/footer file content is now rejected (400), not just missing files
+- HTMLMinifier: replaced regex-based whitespace collapsing with DOM-level text-node processing, so internal newlines/whitespace in text content are properly collapsed
+- HTMLMinifier: content inside `<script>`, `<style>`, `<pre>`, and `<textarea>` is left untouched
+- Added dedicated unit tests for HTMLMinifier covering malformed tags, script/pre/textarea preservation, and inline-element spacing
