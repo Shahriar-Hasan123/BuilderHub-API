@@ -3,8 +3,12 @@ from django.db import models
 
 from apps.core.models import BaseModel
 from apps.core.validators import (
-    css_file_validator, html_file_validator,validate_file_size,
-    validate_favicon_image, validate_logo_image, validate_thumbnail_image,
+    css_file_validator,
+    html_file_validator,
+    validate_file_size,
+    validate_favicon_image,
+    validate_logo_image,
+    validate_thumbnail_image,
 )
 
 

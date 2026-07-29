@@ -144,13 +144,13 @@ class SitePublishAPITests(APITestCase):
         self._auth("publish_editor", "pass12345")
         response = self.client.post(self.publish_url)
         self.assertEqual(response.status_code, status.HTTP_423_LOCKED)
-    
+
     def test_unauthenticated_request_returns_401(self):
         response = self.client.post(self.publish_url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_empty_header_content_returns_400(self):
-        self.site.header = html_file("header.html", "   \n   ")  
+        self.site.header = html_file("header.html", "   \n   ")
         self.site.footer = html_file("footer.html", "<footer>Real content</footer>")
         self.site.save()
         self._add_page("Home")
@@ -187,7 +187,7 @@ class SitePublishAPITests(APITestCase):
     def test_republish_removes_orphaned_page_json(self):
         self._add_header_footer()
         page_to_disable = self._add_page("Home")
-        self._add_page("About") 
+        self._add_page("About")
 
         self._auth("publish_owner", "pass12345")
         first_response = self.client.post(self.publish_url)
@@ -214,12 +214,12 @@ class SitePublishAPITests(APITestCase):
         header_path = f"assets/sites/{self.site.id}/header.json"
         self.assertTrue(default_storage.exists(header_path))
 
-        
-        self.site.header.delete(save=True) 
+        self.site.header.delete(save=True)
         second_response = self.client.post(self.publish_url)
 
         self.assertEqual(second_response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertTrue(default_storage.exists(header_path)) 
+        self.assertTrue(default_storage.exists(header_path))
+
     def test_footer_and_page_html_are_actually_minified(self):
         self.site.header = html_file("header.html", "<header>Head</header>")
         self.site.footer = html_file(
@@ -231,7 +231,9 @@ class SitePublishAPITests(APITestCase):
         self._auth("publish_owner", "pass12345")
         response = self.client.post(self.publish_url)
 
-        footer_path = next(f for f in response.data["files"] if f.endswith("footer.json"))
+        footer_path = next(
+            f for f in response.data["files"] if f.endswith("footer.json")
+        )
         with default_storage.open(footer_path) as f:
             footer_data = json.loads(f.read())
         self.assertNotIn("\n", footer_data["html"])
@@ -254,15 +256,27 @@ class SitePublishAPITests(APITestCase):
             {"site_id", "status", "assets_path", "files"},
         )
 
-        header_path = next(f for f in response.data["files"] if f.endswith("header.json"))
+        header_path = next(
+            f for f in response.data["files"] if f.endswith("header.json")
+        )
         with default_storage.open(header_path) as f:
             header_data = json.loads(f.read())
-        self.assertEqual(set(header_data.keys()), {"site_id", "site_name", "type", "html"})
+        self.assertEqual(
+            set(header_data.keys()), {"site_id", "site_name", "type", "html"}
+        )
 
         page_path = next(f for f in response.data["files"] if "pages/" in f)
         with default_storage.open(page_path) as f:
             page_data = json.loads(f.read())
         self.assertEqual(
             set(page_data.keys()),
-            {"site_id", "page_id", "slug", "title", "meta_description", "page_type", "html"},
+            {
+                "site_id",
+                "page_id",
+                "slug",
+                "title",
+                "meta_description",
+                "page_type",
+                "html",
+            },
         )

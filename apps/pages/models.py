@@ -7,7 +7,7 @@ from apps.core.validators import (
     css_file_validator,
     html_file_validator,
     validate_file_size,
-    validate_hero_image
+    validate_hero_image,
 )
 from apps.sites.models import Site
 

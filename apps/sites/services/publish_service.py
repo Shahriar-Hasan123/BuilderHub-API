@@ -17,9 +17,13 @@ class PublishService:
 
     def _validate_readiness(self, site, pages):
         if not site.header or not site.footer:
-            raise PublishValidationError("Both header and footer HTML are required to publish.")
+            raise PublishValidationError(
+                "Both header and footer HTML are required to publish."
+            )
         if not pages:
-            raise PublishValidationError("Site must have at least one enabled page with HTML to publish.")
+            raise PublishValidationError(
+                "Site must have at least one enabled page with HTML to publish."
+            )
         if not self._read(site.header).strip():
             raise PublishValidationError("Header file is empty.")
         if not self._read(site.footer).strip():
@@ -65,7 +69,7 @@ class PublishService:
             default_storage.delete(relative_path)
         default_storage.save(relative_path, ContentFile(content.encode("utf-8")))
         return relative_path
-    
+
     def _safe_write(self, path: str, content: str) -> str:
         """Writes new content under a temp name first, confirms it landed,
         then removes the old file and writes the final name — never a
@@ -80,8 +84,8 @@ class PublishService:
         default_storage.save(path, ContentFile(content.encode("utf-8")))
         default_storage.delete(temp_path)
 
-        return path    
-    
+        return path
+
     def _cleanup_orphan_pages(self, site, pages):
         pages_dir = f"assets/sites/{site.id}/pages/"
         expected_filenames = {f"{page.slug}.json" for page in pages}
@@ -94,7 +98,7 @@ class PublishService:
         for filename in filenames:
             if filename not in expected_filenames and not filename.endswith(".tmp"):
                 default_storage.delete(f"{pages_dir}{filename}")
-                
+
     def publish(self, site):
         pages = list(
             site.pages.filter(enable=True, html__isnull=False).exclude(html="")
@@ -102,15 +106,17 @@ class PublishService:
         self._validate_readiness(site, pages)
 
         artifacts = self._build_artifacts(site, pages)
-        
-        written_files = [self._safe_write(path, content) for path, content in artifacts]   
-          
+
+        written_files = [self._safe_write(path, content) for path, content in artifacts]
+
         self._cleanup_orphan_pages(site, pages)
-        
+
         with transaction.atomic():
             site.status = site.Status.PUBLISHED
             site.save(update_fields=["status"])
-            Page.objects.filter(pk__in=[p.pk for p in pages]).update(status=Page.Status.PUBLISHED)
+            Page.objects.filter(pk__in=[p.pk for p in pages]).update(
+                status=Page.Status.PUBLISHED
+            )
 
         return {
             "site_id": site.id,
@@ -118,4 +124,3 @@ class PublishService:
             "assets_path": f"assets/sites/{site.id}/",
             "files": written_files,
         }
-        
