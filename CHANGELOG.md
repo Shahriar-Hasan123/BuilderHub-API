@@ -1,0 +1,74 @@
+# Changelog
+
+All notable changes to this project are documented in this file.
+
+## [Unreleased]
+
+### Project Setup
+- Initialized Django project with `config/` (settings, urls, wsgi/asgi) and `apps/` package structure (`core`, `sites`, `pages`)
+- Configured environment variables via `python-dotenv`, `.env` for DB/secret credentials
+- Set up PostgreSQL in Docker (`docker-compose.yml`), Django running locally against it via `localhost`
+- Added `.gitignore` for env, venv, and Django artifacts
+- Added health check endpoint (`GET /api/health/`) verifying DB connectivity
+- Added Swagger/OpenAPI schema generation and documentation support
+
+### Site & Page Models
+- Added `Site` model: `user` (owner), `status` (draft/published/suspended), `favicon`, `logo`, `global_css`, with file size/type validators
+- Added `Page` model: `site` FK, `title`, `slug` (auto-generated), `status`, `page_type`, `html`/`css` files, unique slug per site constraint
+- Added Django admin registration for both models with appropriate readonly fields and filters
+- Configured media storage (`MEDIA_URL`, `MEDIA_ROOT`) for uploaded files
+
+### Authentication
+- Added JWT authentication via `djangorestframework-simplejwt` (access/refresh token rotation, blacklist-after-rotation)
+- Added `POST /api/auth/register/` with Django's `AUTH_PASSWORD_VALIDATORS` enforced
+- Added `POST /api/auth/login/` and `POST /api/auth/refresh/`
+
+### API Design
+- Converted Site/Page endpoints from DRF ViewSets to explicit class-based `APIView`s for per-method HTTP visibility
+- Nested Page endpoints under Site: `/api/sites/{site_pk}/pages/` and `/api/sites/{site_pk}/pages/{pk}/`
+- Added validation: Site name uniqueness (global), Page slug uniqueness (per-site)
+
+### Access Control
+- Changed access model: any authenticated user can view/edit any Site or Page (no per-owner restriction)
+- Added global Django permission `sites.can_edit_site` (via `Site.Meta.permissions`), assignable per-user through Django admin
+- Added `HasSiteUpdatePermission`: read open to all authenticated users; write requires site ownership or the global permission
+- Applied permission checks across Site/Page views via explicit `check_object_permissions()` calls
+
+### Redis-Based Site Locking
+- Added `SiteLockService` using `django-redis` cache backend (atomic `cache.add` for lock acquisition)
+- Lock is site-level only — locking a Site also covers every Page under it (single cache key per site)
+- Locking applies only to write operations (POST/PUT/PATCH/DELETE), not to reads
+- Consolidated lock control into a single dedicated resource: `GET/PATCH/DELETE /api/sites/{pk}/lock/` (acquire-or-status / heartbeat / release)
+- Lock metadata includes `user_id`, `username`, `locked_at`, `last_activity_at`, `ttl_remaining_seconds`
+- Deleting a Site force-clears its associated lock key
+
+### Google Docs Blog Importer
+- Added service-layer architecture: `GoogleDocsClient`, `ImageHandler`, `HTMLCleaner`, `HTMLSanitizer`, `BlogImporterService`
+- Imports blogs from a public Google Doc's tabs (no API/credentials required), one tab per blog
+- Base64 inline images decoded and saved to media storage; title extracted from each tab's `<h1>`
+- Idempotent via `Page.objects.get_or_create` (site + slug) — re-running always upserts
+- Added `import_blogs` management command as a thin entry point
+
+### Site Publish Feature
+- Added `Site.header` / `Site.footer` FileFields (reusing existing HTML validators)
+- Added `HTMLMinifier` service: repairs malformed HTML and collapses whitespace (separate from the blog-import cleaner/sanitizer)
+- Added `HTMLToJSONConverter`: wraps minified HTML + metadata into a JSON dict (not a DOM/AST parser)
+- Added `PublishService`: validates readiness, writes JSON artifacts to `media/assets/sites/{id}/`, flips Site/Page status to `published` only after all writes succeed
+- Added `POST /api/v1/sites/{id}/publish/` (reuses existing permission + lock enforcement)
+- Exposed `header`/`footer` via the Site API (multipart upload), in addition to Django admin
+
+### Site Metadata
+- Added `Site.url` (manually entered custom domain/URL)
+- Added `Site.created_by` (alongside existing `user`, for naming symmetry with Page and future ownership-transfer support)
+- Added nested `SiteSummarySerializer` (`id`, `name`, `status`, `url`) embedded in Page responses
+
+### Testing
+- Restructured `tests.py` files into `tests/` packages across `apps/core`, `apps/sites`, `apps/pages`
+- Added serializer tests (validation, read-only field protection), view tests (permissions, CRUD), and lock tests (acquire/heartbeat/release/status)
+- Added publish endpoint test coverage per acceptance checklist (happy path, validation errors, permission/lock enforcement, whitespace cleaning verification)
+
+### Fixed
+- Site publish: safe republish — writes now use a temp-then-swap pattern instead of delete-then-save, preventing loss of live assets on partial failure
+- Site publish: removed orphaned page JSON files (disabled/deleted/renamed pages) after each publish
+- Site publish: DB status update now wrapped in `transaction.atomic()`, applied only after all files are safely written
+- Site publish: empty header/footer file content is now rejected (400), not just missing files
