@@ -22,6 +22,7 @@ class PageSerializer(serializers.ModelSerializer):
             "canonical_url",
             "html",
             "css",
+            "hero_image",
             "created_by",
             "updated_by",
             "created_at",

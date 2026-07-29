@@ -3,9 +3,8 @@ from django.db import models
 
 from apps.core.models import BaseModel
 from apps.core.validators import (
-    css_file_validator,
-    html_file_validator,
-    validate_file_size,
+    css_file_validator, html_file_validator,validate_file_size,
+    validate_favicon_image, validate_logo_image, validate_thumbnail_image,
 )
 
 
@@ -31,13 +30,19 @@ class Site(BaseModel):
     )
     favicon = models.ImageField(
         upload_to="sites/favicons/",
-        validators=[validate_file_size],
+        validators=[validate_favicon_image],
         blank=True,
         null=True,
     )
     logo = models.ImageField(
         upload_to="sites/logos/",
-        validators=[validate_file_size],
+        validators=[validate_logo_image],
+        blank=True,
+        null=True,
+    )
+    thumbnail = models.ImageField(
+        upload_to="sites/thumbnails/",
+        validators=[validate_thumbnail_image],
         blank=True,
         null=True,
     )

@@ -17,6 +17,10 @@ All notable changes to this project are documented in this file.
 - Added `Page` model: `site` FK, `title`, `slug` (auto-generated), `status`, `page_type`, `html`/`css` files, unique slug per site constraint
 - Added Django admin registration for both models with appropriate readonly fields and filters
 - Configured media storage (`MEDIA_URL`, `MEDIA_ROOT`) for uploaded files
+- Added comprehensive `ImageValidator` supporting PNG, JPEG, WEBP, GIF, AVIF, and SVG, with size and dimension rules
+- Added `Site.thumbnail` field with 100-800px dimension limits and 50KB max size
+- Added `Page.hero_image` field with 400-2500px dimension limits and 300KB max size, suitable for page-specific hero banners
+- Added role-based image presets for favicon (16-512px, 50KB) and logo (50-1000px, 150KB)
 
 ### Authentication
 - Added JWT authentication via `djangorestframework-simplejwt` (access/refresh token rotation, blacklist-after-rotation)
@@ -33,6 +37,7 @@ All notable changes to this project are documented in this file.
 - Added global Django permission `sites.can_edit_site` (via `Site.Meta.permissions`), assignable per-user through Django admin
 - Added `HasSiteUpdatePermission`: read open to all authenticated users; write requires site ownership or the global permission
 - Applied permission checks across Site/Page views via explicit `check_object_permissions()` calls
+- Changed `Site.favicon` and `Site.logo` to use `ImageValidator` instead of simpler size-only validators
 
 ### Redis-Based Site Locking
 - Added `SiteLockService` using `django-redis` cache backend (atomic `cache.add` for lock acquisition)

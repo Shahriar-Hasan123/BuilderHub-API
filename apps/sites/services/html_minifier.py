@@ -1,4 +1,5 @@
 import re
+
 from bs4 import BeautifulSoup, Comment
 
 PRESERVE_WHITESPACE_TAGS = {"script", "style", "pre", "textarea"}

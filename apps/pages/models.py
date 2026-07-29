@@ -7,6 +7,7 @@ from apps.core.validators import (
     css_file_validator,
     html_file_validator,
     validate_file_size,
+    validate_hero_image
 )
 from apps.sites.models import Site
 
@@ -42,6 +43,12 @@ class Page(BaseModel):
     css = models.FileField(
         upload_to="pages/css/",
         validators=[css_file_validator, validate_file_size],
+        blank=True,
+        null=True,
+    )
+    hero_image = models.ImageField(
+        upload_to="pages/hero/",
+        validators=[validate_hero_image],
         blank=True,
         null=True,
     )
