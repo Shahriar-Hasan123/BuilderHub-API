@@ -26,6 +26,15 @@ All notable changes to this project are documented in this file.
 - Added `ImageOptimizer` service for upload-time image compression and format handling.
 - Added `ImageOptimizationMixin` to auto-compress configured DRF image fields during `create()` and `update()`.
 
+### Site Images API
+- Added nested site image endpoints:
+  - `GET /api/v1/sites/{site_pk}/images/`
+  - `POST /api/v1/sites/{site_pk}/images/`
+  - `GET /api/v1/sites/{site_pk}/images/{pk}/`
+  - `PUT/PATCH /api/v1/sites/{site_pk}/images/{pk}/`
+  - `DELETE /api/v1/sites/{site_pk}/images/{pk}/`
+- Added `SiteImageSerializer` and site-scoped image views.
+
 ### Authentication
 - Added JWT authentication via `djangorestframework-simplejwt` (access/refresh token rotation, blacklist-after-rotation)
 - Added `POST /api/auth/register/` with Django's `AUTH_PASSWORD_VALIDATORS` enforced

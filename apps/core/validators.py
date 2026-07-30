@@ -113,6 +113,13 @@ validate_hero_image = ImageValidator(
     max_height=2160,
 )
 
+validate_content_image=ImageValidator(
+    min_width=20,
+    min_height=20,
+    max_width=6000,
+    max_height=6000,
+)
+
 html_file_validator = FileExtensionValidator(allowed_extensions=["html"])
 css_file_validator = FileExtensionValidator(allowed_extensions=["css"])
 

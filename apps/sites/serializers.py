@@ -1,7 +1,9 @@
 from rest_framework import serializers
 from apps.core.mixins import ImageOptimizationMixin
+from apps.core.validators import validate_content_image
 
-from .models import Site
+from apps.pages.models import Page
+from .models import Site, SiteImage
 
 
 class SiteSerializer(ImageOptimizationMixin, serializers.ModelSerializer):
@@ -41,6 +43,44 @@ class SiteSerializer(ImageOptimizationMixin, serializers.ModelSerializer):
             queryset = queryset.exclude(pk=self.instance.pk)
         if queryset.exists():
             raise serializers.ValidationError("A site with this name already exists.")
+        return value
+
+
+class SiteImageSerializer(ImageOptimizationMixin, serializers.ModelSerializer):
+    optimized_image_fields={"image": 150}
+    class Meta:
+        model = SiteImage
+        fields = [
+            "id",
+            "site",
+            "page",
+            "file_name",
+            "image",
+            "alt_text",
+            "file_size",
+            "width",
+            "height",
+            "created_by",
+            "created_at",
+            "updated_at",
+            "updated_by",
+        ]
+        read_only_fields = [
+            "id",
+            "site",
+            "file_size",
+            "width",
+            "height",
+            "created_by",
+            "updated_by",
+            "created_at",
+            "updated_at",
+        ]
+
+    def validate_page(self, value):
+        site = self.context.get("site")
+        if value and site and value.site_id != site.id:
+            raise serializers.ValidationError("Page must belong to the requested site.")
         return value
 
 
