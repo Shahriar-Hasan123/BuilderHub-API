@@ -4,9 +4,12 @@ from rest_framework import serializers
 from apps.sites.serializers import SiteSummarySerializer
 
 from .models import Page
+from apps.core.mixins import ImageOptimizationMixin
 
 
-class PageSerializer(serializers.ModelSerializer):
+class PageSerializer(ImageOptimizationMixin, serializers.ModelSerializer):
+    optimized_image_fields = {"hero_image": 300}
+
     site = SiteSummarySerializer(read_only=True)
 
     class Meta:

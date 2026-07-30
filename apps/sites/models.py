@@ -1,5 +1,7 @@
 from django.conf import settings
 from django.db import models
+from django.utils.deconstruct import deconstructible
+from django.utils.text import slugify
 
 from apps.core.models import BaseModel
 from apps.core.validators import (
@@ -10,6 +12,16 @@ from apps.core.validators import (
     validate_logo_image,
     validate_thumbnail_image,
 )
+
+
+@deconstructible
+class SiteImageUploadTo:
+    def __init__(self, folder):
+        self.folder = folder
+
+    def __call__(self, instance, filename):
+        slug = slugify(getattr(instance, "name", "site")) or "site"
+        return f"sites/{slug}/{self.folder}/{filename}"
 
 
 class Site(BaseModel):
@@ -25,7 +37,7 @@ class Site(BaseModel):
     )
     name = models.CharField(max_length=255)
 
-    url = models.URLField(blank=True, null=True)
+    url = models.URLField(blank=True, null=True, unique=True)
 
     status = models.CharField(
         max_length=20,
@@ -33,19 +45,19 @@ class Site(BaseModel):
         default=Status.DRAFT,
     )
     favicon = models.ImageField(
-        upload_to="sites/favicons/",
+        upload_to=SiteImageUploadTo("favicons"),
         validators=[validate_favicon_image],
         blank=True,
         null=True,
     )
     logo = models.ImageField(
-        upload_to="sites/logos/",
+        upload_to=SiteImageUploadTo("logos"),
         validators=[validate_logo_image],
         blank=True,
         null=True,
     )
     thumbnail = models.ImageField(
-        upload_to="sites/thumbnails/",
+        upload_to=SiteImageUploadTo("thumbnails"),
         validators=[validate_thumbnail_image],
         blank=True,
         null=True,

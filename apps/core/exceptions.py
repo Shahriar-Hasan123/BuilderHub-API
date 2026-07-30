@@ -33,3 +33,6 @@ class PublishValidationError(Exception):
     (missing header/footer, or no enabled pages with HTML)."""
 
     pass
+
+class UnsupportedImageFormatError(Exception):
+    pass

@@ -1,9 +1,12 @@
 from rest_framework import serializers
+from apps.core.mixins import ImageOptimizationMixin
 
 from .models import Site
 
 
-class SiteSerializer(serializers.ModelSerializer):
+class SiteSerializer(ImageOptimizationMixin, serializers.ModelSerializer):
+    optimized_image_fields = {"favicon": 50, "logo": 50, "thumbnail": 50}
+
     class Meta:
         model = Site
         fields = [

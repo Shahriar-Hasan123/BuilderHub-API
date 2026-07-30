@@ -22,6 +22,10 @@ All notable changes to this project are documented in this file.
 - Added `Page.hero_image` field with 400-2500px dimension limits and 300KB max size, suitable for page-specific hero banners
 - Added role-based image presets for favicon (16-512px, 50KB) and logo (50-1000px, 150KB)
 
+### Image Optimization
+- Added `ImageOptimizer` service for upload-time image compression and format handling.
+- Added `ImageOptimizationMixin` to auto-compress configured DRF image fields during `create()` and `update()`.
+
 ### Authentication
 - Added JWT authentication via `djangorestframework-simplejwt` (access/refresh token rotation, blacklist-after-rotation)
 - Added `POST /api/auth/register/` with Django's `AUTH_PASSWORD_VALIDATORS` enforced

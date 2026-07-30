@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+from django.utils.deconstruct import deconstructible
 from django.utils.text import slugify
 
 from apps.core.models import BaseModel
@@ -10,6 +11,19 @@ from apps.core.validators import (
     validate_hero_image,
 )
 from apps.sites.models import Site
+
+
+@deconstructible
+class PageImageUploadTo:
+    def __init__(self, folder):
+        self.folder = folder
+
+    def __call__(self, instance, filename):
+        site_slug = slugify(getattr(instance.site, "name", "site")) or "site"
+        page_slug = slugify(getattr(instance, "slug", "")) or slugify(
+            getattr(instance, "title", "page")
+        )
+        return f"sites/{site_slug}/pages/{page_slug}/{self.folder}/{filename}"
 
 
 class Page(BaseModel):
@@ -47,7 +61,7 @@ class Page(BaseModel):
         null=True,
     )
     hero_image = models.ImageField(
-        upload_to="pages/hero/",
+        upload_to=PageImageUploadTo("hero"),
         validators=[validate_hero_image],
         blank=True,
         null=True,
