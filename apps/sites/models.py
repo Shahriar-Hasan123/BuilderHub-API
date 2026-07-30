@@ -7,11 +7,11 @@ from apps.core.models import BaseModel
 from apps.core.validators import (
     css_file_validator,
     html_file_validator,
-    validate_file_size,
+    validate_content_image,
     validate_favicon_image,
+    validate_file_size,
     validate_logo_image,
     validate_thumbnail_image,
-    validate_content_image,
 )
 
 
@@ -21,7 +21,10 @@ class SiteImageUploadTo:
         self.folder = folder
 
     def __call__(self, instance, filename):
-        site_slug = slugify(getattr(instance.site, "name", getattr(instance, "name", "site"))) or "site"
+        site_slug = (
+            slugify(getattr(instance.site, "name", getattr(instance, "name", "site")))
+            or "site"
+        )
         if getattr(instance, "page_id", None):
             page_slug = slugify(getattr(instance.page, "slug", "")) or slugify(
                 getattr(instance.page, "title", "page")

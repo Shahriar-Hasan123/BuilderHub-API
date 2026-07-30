@@ -1,6 +1,8 @@
 import io
 import os
+
 from PIL import Image
+
 from apps.core.exceptions import UnsupportedImageFormatError
 
 COMPRESSION_SKIP_THRESHOLD_KB = 500
@@ -38,9 +40,7 @@ class ImageOptimizer:
                 image.load()
                 image = image.copy()
         except (OSError, ValueError) as exc:
-            raise UnsupportedImageFormatError(
-                f"Cannot open image file: {exc}"
-            )
+            raise UnsupportedImageFormatError(f"Cannot open image file: {exc}")
 
         if ext == ".png":
             return self._compress_png(image, file.name)
@@ -112,19 +112,27 @@ class ImageOptimizer:
             method=Image.Quantize.MEDIANCUT,
             dither=Image.Dither.NONE,
         )
+
     def _compress_other(self, image: Image.Image, ext: str, filename: str):
         if ext in (".jpg", ".jpeg"):
             return self._save(
-                image.convert("RGB"), "JPEG", filename,
-                quality=75, optimize=True, progressive=True, subsampling=2,
+                image.convert("RGB"),
+                "JPEG",
+                filename,
+                quality=75,
+                optimize=True,
+                progressive=True,
+                subsampling=2,
             )
         if ext == ".webp":
-            return self._save(image, "WEBP", filename, quality=75, method=6, lossless=False)
+            return self._save(
+                image, "WEBP", filename, quality=75, method=6, lossless=False
+            )
         if ext == ".avif":
             return self._save(image, "AVIF", filename, quality=60, speed=8)
 
         raise UnsupportedImageFormatError(f"No compression handler for: {ext}")
- 
+
     def _save(self, image: Image.Image, format: str, filename: str, **kwargs):
         buffer = io.BytesIO()
         image.save(buffer, format=format, **kwargs)

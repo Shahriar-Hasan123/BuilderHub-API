@@ -1,9 +1,9 @@
-from apps.core.exceptions import ResourceLockedError, SiteLockedAPIException
-from apps.core.services.resource_lock import SiteLockService
-
 from django.core.files.base import ContentFile
 from rest_framework import serializers
+
+from apps.core.exceptions import ResourceLockedError, SiteLockedAPIException
 from apps.core.services.image_optimizer import ImageOptimizer
+from apps.core.services.resource_lock import SiteLockService
 
 
 class SiteLockMixin:

@@ -1,8 +1,7 @@
 from rest_framework import serializers
-from apps.core.mixins import ImageOptimizationMixin
-from apps.core.validators import validate_content_image
 
-from apps.pages.models import Page
+from apps.core.mixins import ImageOptimizationMixin
+
 from .models import Site, SiteImage
 
 
@@ -47,7 +46,8 @@ class SiteSerializer(ImageOptimizationMixin, serializers.ModelSerializer):
 
 
 class SiteImageSerializer(ImageOptimizationMixin, serializers.ModelSerializer):
-    optimized_image_fields={"image": 150}
+    optimized_image_fields = {"image": 150}
+
     class Meta:
         model = SiteImage
         fields = [

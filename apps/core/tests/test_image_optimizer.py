@@ -1,10 +1,15 @@
 import io
 import os
+
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from PIL import Image
-from django.core.files.uploadedfile import SimpleUploadedFile
-from apps.core.services.image_optimizer import ImageOptimizer, COMPRESSION_SKIP_THRESHOLD_KB
+
 from apps.core.exceptions import UnsupportedImageFormatError
+from apps.core.services.image_optimizer import (
+    COMPRESSION_SKIP_THRESHOLD_KB,
+    ImageOptimizer,
+)
 
 
 def _random_png_bytes(width=900, height=900, mode="RGBA"):

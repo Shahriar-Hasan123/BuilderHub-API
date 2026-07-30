@@ -1,10 +1,11 @@
 import io
+
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import SimpleTestCase
 from PIL import Image
 
-from apps.core.validators import ImageValidator, MAX_FILE_SIZE_BYTES, validate_file_size
+from apps.core.validators import MAX_FILE_SIZE_BYTES, ImageValidator, validate_file_size
 
 
 def _solid_png_bytes(size=(10, 10), mode="RGB", color=(255, 0, 0)):
@@ -66,6 +67,8 @@ class FileSizeValidatorTests(SimpleTestCase):
         validate_file_size(file)
 
     def test_rejects_over_limit(self):
-        file = SimpleUploadedFile("large.txt", b"a" * (MAX_FILE_SIZE_BYTES + 1), content_type="text/plain")
+        file = SimpleUploadedFile(
+            "large.txt", b"a" * (MAX_FILE_SIZE_BYTES + 1), content_type="text/plain"
+        )
         with self.assertRaises(ValidationError):
             validate_file_size(file)

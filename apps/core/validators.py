@@ -113,7 +113,7 @@ validate_hero_image = ImageValidator(
     max_height=2160,
 )
 
-validate_content_image=ImageValidator(
+validate_content_image = ImageValidator(
     min_width=20,
     min_height=20,
     max_width=6000,

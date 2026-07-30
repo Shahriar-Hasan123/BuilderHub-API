@@ -1,10 +1,10 @@
 from django.utils.text import slugify
 from rest_framework import serializers
 
+from apps.core.mixins import ImageOptimizationMixin
 from apps.sites.serializers import SiteSummarySerializer
 
 from .models import Page
-from apps.core.mixins import ImageOptimizationMixin
 
 
 class PageSerializer(ImageOptimizationMixin, serializers.ModelSerializer):

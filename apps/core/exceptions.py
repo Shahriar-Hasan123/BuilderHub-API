@@ -34,5 +34,6 @@ class PublishValidationError(Exception):
 
     pass
 
+
 class UnsupportedImageFormatError(Exception):
     pass
