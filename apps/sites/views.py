@@ -16,6 +16,7 @@ from apps.core.permissions import HasUpdatePermission
 from apps.core.schema import object_response, site_schema, site_schema_view
 from apps.core.services.resource_lock import SiteLockService
 from apps.sites.services.publish_service import PublishService
+from apps.sites.services.site_image_upload_service import SiteImageUploadService
 
 from .models import Site, SiteImage
 from .serializers import SiteImageSerializer, SiteSerializer
@@ -221,7 +222,7 @@ class SiteLockAPIView(APIView):
         responses=SiteImageSerializer,
     ),
 )
-class SiteImageListAPIView(APIView):
+class SiteImageListAPIView(APIView, SiteLockMixin):
     permission_classes = [permissions.IsAuthenticated, HasUpdatePermission]
 
     def get_site(self, site_pk):
@@ -237,21 +238,23 @@ class SiteImageListAPIView(APIView):
 
     def post(self, request, site_pk):
         site = self.get_site(site_pk)
-        
-        
-        
-        
-        serializer = SiteImageSerializer(
-            data=request.data,
-            context={"site": site},
-        )
-        serializer.is_valid(raise_exception=True)
-        serializer.save(
+        self.enforce_site_lock(request, site)
+
+        service = SiteImageUploadService(
             site=site,
-            created_by=request.user,
-            updated_by=request.user,
+            user=request.user,
         )
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        result = service.upload(request)
+        return Response(
+            {
+                "uploaded": len(result["uploaded"]),
+                "failed": len(result["failed"]),
+                "success": result["uploaded"],
+                "errors": result["failed"],
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
 @site_schema_view(
@@ -278,7 +281,7 @@ class SiteImageListAPIView(APIView):
         responses={204: None},
     ),
 )
-class SiteImageDetailAPIView(APIView):
+class SiteImageDetailAPIView(APIView, SiteLockMixin):
     permission_classes = [permissions.IsAuthenticated, HasUpdatePermission]
 
     def get_object(self, site_pk, pk):
@@ -294,6 +297,7 @@ class SiteImageDetailAPIView(APIView):
 
     def put(self, request, site_pk, pk):
         site, image = self.get_object(site_pk, pk)
+        self.enforce_site_lock(request, site)
         serializer = SiteImageSerializer(
             instance=image,
             data=request.data,
@@ -305,6 +309,7 @@ class SiteImageDetailAPIView(APIView):
 
     def patch(self, request, site_pk, pk):
         site, image = self.get_object(site_pk, pk)
+        self.enforce_site_lock(request, site)
         serializer = SiteImageSerializer(
             instance=image,
             data=request.data,
@@ -316,7 +321,8 @@ class SiteImageDetailAPIView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def delete(self, request, site_pk, pk):
-        _, image = self.get_object(site_pk, pk)
+        site, image = self.get_object(site_pk, pk)
+        self.enforce_site_lock(request, site)
         image.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 

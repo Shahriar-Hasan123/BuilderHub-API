@@ -35,6 +35,8 @@ All notable changes to this project are documented in this file.
   - `PUT/PATCH /api/v1/sites/{site_pk}/images/{pk}/`
   - `DELETE /api/v1/sites/{site_pk}/images/{pk}/`
 - Added `SiteImageSerializer` and site-scoped image views.
+- Implemented multi-image upload support for site images via `SiteImageUploadService`, allowing a single request to upload several images at once and return per-file success/error results.
+- Enforced site-level lock checks on site-image write operations so uploads, updates, and deletes are protected by the same lock model used for site editing.
 
 ### Authentication
 - Added JWT authentication via `djangorestframework-simplejwt` (access/refresh token rotation, blacklist-after-rotation)
