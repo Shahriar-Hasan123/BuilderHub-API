@@ -10,18 +10,18 @@ from .views import (
 )
 
 urlpatterns = [
-    path("sites/", SiteListCreateAPIView.as_view(), name="site-list-create"),
-    path("sites/<int:pk>/", SiteDetailAPIView.as_view(), name="site-detail"),
+    path("sites", SiteListCreateAPIView.as_view(), name="site-list-create"),
+    path("sites/<int:pk>", SiteDetailAPIView.as_view(), name="site-detail"),
     path(
-        "sites/<int:site_pk>/images/",
+        "sites/<int:site_pk>/images",
         SiteImageListAPIView.as_view(),
         name="site-image-list",
     ),
     path(
-        "sites/<int:site_pk>/images/<int:pk>/",
+        "sites/<int:site_pk>/images/<int:pk>",
         SiteImageDetailAPIView.as_view(),
         name="site-image-detail",
     ),
-    path("sites/<int:pk>/lock/", SiteLockAPIView.as_view(), name="site-lock"),
-    path("sites/<int:pk>/publish/", SitePublishAPIView.as_view(), name="site-publish"),
+    path("sites/<int:pk>/lock", SiteLockAPIView.as_view(), name="site-lock"),
+    path("sites/<int:pk>/publish", SitePublishAPIView.as_view(), name="site-publish"),
 ]

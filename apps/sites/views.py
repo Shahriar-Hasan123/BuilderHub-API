@@ -237,6 +237,10 @@ class SiteImageListAPIView(APIView):
 
     def post(self, request, site_pk):
         site = self.get_site(site_pk)
+        
+        
+        
+        
         serializer = SiteImageSerializer(
             data=request.data,
             context={"site": site},

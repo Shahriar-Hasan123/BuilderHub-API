@@ -109,6 +109,8 @@ python manage.py runserver
 
 The API will be available at http://127.0.0.1:8000/.
 
+All API endpoints now use a no-trailing-slash convention, for example `/api/v1/sites` instead of `/api/v1/sites/`.
+
 ## Testing
 
 Run the Django test suite for a specific app:
@@ -174,20 +176,20 @@ The lock system uses a Redis key per site that expires after the configured `RES
 
 ### Lock Lifecycle
 
-1. **Acquire** (`POST /api/v1/sites/{pk}/lock/`): User acquires an exclusive lock
+1. **Acquire** (`POST /api/v1/sites/{pk}/lock`): User acquires an exclusive lock
    - Returns `201 Created` with lock status if successful
    - Returns `200 OK` if the same user already holds the lock and the lock is refreshed
    - Returns `423 Locked` if another user already holds the lock
 
-2. **Check Status** (`GET /api/v1/sites/{pk}/lock/`): Check who (if anyone) holds the lock
+2. **Check Status** (`GET /api/v1/sites/{pk}/lock`): Check who (if anyone) holds the lock
    - Returns lock details such as `user_id`, `locked_by`, `locked_at`, and `ttl_remaining_seconds`
 
-3. **Refresh** (`PATCH /api/v1/sites/{pk}/lock/`): Extend lock expiration (must hold the lock)
+3. **Refresh** (`PATCH /api/v1/sites/{pk}/lock`): Extend lock expiration (must hold the lock)
    - Useful for long-running operations to keep the lock alive
    - Returns `200 OK` with updated TTL
    - Returns `409 Conflict` if no active lock exists for the site
 
-4. **Release** (`DELETE /api/v1/sites/{pk}/lock/`): Voluntarily release the lock
+4. **Release** (`DELETE /api/v1/sites/{pk}/lock`): Voluntarily release the lock
    - Returns `204 No Content`
    - Returns `409 Conflict` if no active lock exists for the site
 
@@ -201,43 +203,44 @@ Edit operations (page/site creation, update, delete) automatically enforce locks
 
 ## API Endpoints
 
-All API routes are versioned under `/api/v1/`.
+All API routes are versioned under `/api/v1` and use a no-trailing-slash convention.
 
 ### Health Check
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/v1/health/` | Checks API and database connectivity |
+| GET | `/api/v1/health` | Checks API and database connectivity |
 
 ### Authentication
 
 | Method | Endpoint | Description | Auth Required |
 |--------|----------|-------------|---------------|
-| POST | `/api/v1/auth/register/` | Register a new user | No |
-| POST | `/api/v1/auth/login/` | Obtain JWT access and refresh tokens | No |
-| POST | `/api/v1/auth/refresh/` | Refresh JWT access token | No |
+| POST | `/api/v1/auth/register` | Register a new user | No |
+| POST | `/api/v1/auth/login` | Obtain JWT access and refresh tokens | No |
+| POST | `/api/v1/auth/refresh` | Refresh JWT access token | No |
 
 ### Sites
 
 | Method | Endpoint | Description | Auth Required |
 |--------|----------|-------------|---------------|
-| GET | `/api/v1/sites/` | List all sites available to authenticated users | Yes |
-| POST | `/api/v1/sites/` | Create a new site | Yes |
-| GET | `/api/v1/sites/{pk}/` | Retrieve a specific site | Yes |
-| PUT | `/api/v1/sites/{pk}/` | Replace a site | Yes |
-| PATCH | `/api/v1/sites/{pk}/` | Partially update a site | Yes |
-| DELETE | `/api/v1/sites/{pk}/` | Delete a site | Yes |
-| POST | `/api/v1/sites/{pk}/publish/` | Publish a site by generating header/footer/page JSON assets | Yes |
+| GET | `/api/v1/sites` | List all sites available to authenticated users | Yes |
+| POST | `/api/v1/sites` | Create a new site | Yes |
+| GET | `/api/v1/sites/{pk}` | Retrieve a specific site | Yes |
+| PUT | `/api/v1/sites/{pk}` | Replace a site | Yes |
+| PATCH | `/api/v1/sites/{pk}` | Partially update a site | Yes |
+| DELETE | `/api/v1/sites/{pk}` | Delete a site | Yes |
+| POST | `/api/v1/sites/{pk}/publish` | Publish a site by generating header/footer/page JSON assets | Yes |
+
 ### Site Images
 
 | Method | Endpoint | Description | Auth Required |
 |--------|----------|-------------|---------------|
-| GET | `/api/v1/sites/{site_pk}/images/` | List images for a specific site | Yes |
-| POST | `/api/v1/sites/{site_pk}/images/` | Upload a new image for a site | Yes |
-| GET | `/api/v1/sites/{site_pk}/images/{pk}/` | Retrieve a specific site image | Yes |
-| PUT | `/api/v1/sites/{site_pk}/images/{pk}/` | Replace a site image record | Yes |
-| PATCH | `/api/v1/sites/{site_pk}/images/{pk}/` | Partially update a site image | Yes |
-| DELETE | `/api/v1/sites/{site_pk}/images/{pk}/` | Delete a site image | Yes |
+| GET | `/api/v1/sites/{site_pk}/images` | List images for a specific site | Yes |
+| POST | `/api/v1/sites/{site_pk}/images` | Upload a new image for a site | Yes |
+| GET | `/api/v1/sites/{site_pk}/images/{pk}` | Retrieve a specific site image | Yes |
+| PUT | `/api/v1/sites/{site_pk}/images/{pk}` | Replace a site image record | Yes |
+| PATCH | `/api/v1/sites/{site_pk}/images/{pk}` | Partially update a site image | Yes |
+| DELETE | `/api/v1/sites/{site_pk}/images/{pk}` | Delete a site image | Yes |
 
 > Note: `site_pk` must match the `site` foreign key on the image record. Image uploads are validated and optimized on upload.
 > Note: read-only site access is available to authenticated users; ownership or `can_edit_site` permission is required for updates and deletes.
@@ -246,7 +249,7 @@ All API routes are versioned under `/api/v1/`.
 
 Publishing a site generates JSON files for the site header, footer, and enabled pages, then marks the site and its pages as published.
 
-- Endpoint: `POST /api/v1/sites/{pk}/publish/`
+- Endpoint: `POST /api/v1/sites/{pk}/publish`
 - Requires a valid site lock for the current user
 - Returns a payload with the published site ID, status, asset path, and generated file list
 - Returns `400 Bad Request` when the site is missing header/footer HTML or has no enabled page HTML
@@ -257,10 +260,10 @@ Publishing a site generates JSON files for the site header, footer, and enabled 
 
 | Method | Endpoint | Description | Auth Required |
 |--------|----------|-------------|---------------|
-| GET | `/api/v1/sites/{pk}/lock/` | Get lock status for a site | Yes |
-| POST | `/api/v1/sites/{pk}/lock/` | Acquire lock for a site | Yes |
-| PATCH | `/api/v1/sites/{pk}/lock/` | Refresh lock expiration | Yes |
-| DELETE | `/api/v1/sites/{pk}/lock/` | Release lock for a site | Yes |
+| GET | `/api/v1/sites/{pk}/lock` | Get lock status for a site | Yes |
+| POST | `/api/v1/sites/{pk}/lock` | Acquire lock for a site | Yes |
+| PATCH | `/api/v1/sites/{pk}/lock` | Refresh lock expiration | Yes |
+| DELETE | `/api/v1/sites/{pk}/lock` | Release lock for a site | Yes |
 
 > Note: the publish endpoint also requires a valid site lock before generating the site assets.
 
@@ -268,12 +271,12 @@ Publishing a site generates JSON files for the site header, footer, and enabled 
 
 | Method | Endpoint | Description | Auth Required |
 |--------|----------|-------------|---------------|
-| GET | `/api/v1/sites/{site_pk}/pages/` | List pages for a specific site | Yes |
-| POST | `/api/v1/sites/{site_pk}/pages/` | Create a page under a site | Yes |
-| GET | `/api/v1/sites/{site_pk}/pages/{pk}/` | Retrieve a specific page | Yes |
-| PUT | `/api/v1/sites/{site_pk}/pages/{pk}/` | Replace a page | Yes |
-| PATCH | `/api/v1/sites/{site_pk}/pages/{pk}/` | Partially update a page | Yes |
-| DELETE | `/api/v1/sites/{site_pk}/pages/{pk}/` | Delete a page | Yes |
+| GET | `/api/v1/sites/{site_pk}/pages` | List pages for a specific site | Yes |
+| POST | `/api/v1/sites/{site_pk}/pages` | Create a page under a site | Yes |
+| GET | `/api/v1/sites/{site_pk}/pages/{pk}` | Retrieve a specific page | Yes |
+| PUT | `/api/v1/sites/{site_pk}/pages/{pk}` | Replace a page | Yes |
+| PATCH | `/api/v1/sites/{site_pk}/pages/{pk}` | Partially update a page | Yes |
+| DELETE | `/api/v1/sites/{site_pk}/pages/{pk}` | Delete a page | Yes |
 
 ## Google Docs Blog Importer
 
@@ -338,15 +341,15 @@ Done — created: 1, updated: 1, skipped: 1, failed: 1
 
 ## Authentication Flow
 
-1. Register a user via `/api/v1/auth/register/`
-2. Obtain tokens via `/api/v1/auth/login/` with `username` and `password`
+1. Register a user via `/api/v1/auth/register`
+2. Obtain tokens via `/api/v1/auth/login` with `username` and `password`
 3. Include the access token in the `Authorization` header:
 
 ```http
 Authorization: Bearer <access_token>
 ```
 
-4. Refresh the access token via `/api/v1/auth/refresh/` when it expires
+4. Refresh the access token via `/api/v1/auth/refresh` when it expires
 
 ## Swagger / OpenAPI
 
@@ -366,9 +369,9 @@ python manage.py spectacular --validate
 
 ### Open the docs
 
-- Swagger UI: http://127.0.0.1:8000/api/v1/docs/
-- OpenAPI schema: http://127.0.0.1:8000/api/v1/schema/
-- Redoc: http://127.0.0.1:8000/api/v1/redoc/
+- Swagger UI: http://127.0.0.1:8000/api/v1/docs
+- OpenAPI schema: http://127.0.0.1:8000/api/v1/schema
+- Redoc: http://127.0.0.1:8000/api/v1/redoc
 
 ## Code Quality
 
