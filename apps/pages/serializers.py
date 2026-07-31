@@ -2,13 +2,12 @@ from django.utils.text import slugify
 from rest_framework import serializers
 from apps.core.utils.image_field_processor import ImageFieldProcessor
 
-from apps.core.mixins import ImageOptimizationMixin
 from apps.sites.serializers import SiteSummarySerializer
 
 from .models import Page
 
 
-class PageSerializer(ImageOptimizationMixin, serializers.ModelSerializer):
+class PageSerializer(serializers.ModelSerializer):
     optimized_image_fields = {"hero_image": 300}
 
     site = SiteSummarySerializer(read_only=True)

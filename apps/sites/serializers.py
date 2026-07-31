@@ -1,12 +1,10 @@
 from rest_framework import serializers
 from apps.core.utils.image_field_processor import ImageFieldProcessor
-
-from apps.core.mixins import ImageOptimizationMixin
-
+from PIL import Image
 from .models import Site, SiteImage
 
 
-class SiteSerializer(ImageOptimizationMixin, serializers.ModelSerializer):
+class SiteSerializer(serializers.ModelSerializer):
     optimized_image_fields = {"favicon": 50, "logo": 50, "thumbnail": 50}
 
     class Meta:
@@ -58,7 +56,7 @@ class SiteSerializer(ImageOptimizationMixin, serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
 
-class SiteImageSerializer(ImageOptimizationMixin, serializers.ModelSerializer):
+class SiteImageSerializer(serializers.ModelSerializer):
     optimized_image_fields = {"image": 150}
 
     class Meta:
@@ -100,13 +98,41 @@ class SiteImageSerializer(ImageOptimizationMixin, serializers.ModelSerializer):
         validated_data = ImageFieldProcessor().process(
             self.optimized_image_fields, validated_data
         )
+
+        self.extract_image_metadata(validated_data)
+
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
         validated_data = ImageFieldProcessor().process(
             self.optimized_image_fields, validated_data
         )
+
+        self.extract_image_metadata(validated_data)
+
         return super().update(instance, validated_data)
+
+    def extract_image_metadata(self, validated_data):
+        image = validated_data.get("image")
+
+        if not image:
+            return
+
+        # Generate filename only if user did not provide one
+        if not validated_data.get("file_name"):
+            validated_data["file_name"] = image.name
+
+        # Always calculate file size
+        validated_data["file_size"] = image.size
+
+        # Always calculate dimensions
+        try:
+            with Image.open(image) as img:
+                validated_data["width"] = img.width
+                validated_data["height"] = img.height
+
+        except Exception:
+            pass
 
 
 class SiteSummarySerializer(serializers.ModelSerializer):

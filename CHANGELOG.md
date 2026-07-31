@@ -45,6 +45,7 @@ All notable changes to this project are documented in this file.
 - Converted Site/Page endpoints from DRF ViewSets to explicit class-based `APIView`s for per-method HTTP visibility
 - Nested Page endpoints under Site: `/api/sites/{site_pk}/pages/` and `/api/sites/{site_pk}/pages/{pk}/`
 - Added validation: Site name uniqueness (global), Page slug uniqueness (per-site)
+- Centralized Swagger/OpenAPI schema definitions through a shared helper in `apps/core/schema.py`, so `extend_schema` usage is consolidated and view modules now use reusable schema builders for auth, pages, and sites.
 
 ### Access Control
 - Changed access model: any authenticated user can view/edit any Site or Page (no per-owner restriction)
