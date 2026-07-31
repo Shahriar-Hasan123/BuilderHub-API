@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from apps.core.utils.image_field_processor import ImageFieldProcessor
 
 from apps.core.mixins import ImageOptimizationMixin
 
@@ -44,6 +45,18 @@ class SiteSerializer(ImageOptimizationMixin, serializers.ModelSerializer):
             raise serializers.ValidationError("A site with this name already exists.")
         return value
 
+    def create(self, validated_data):
+        validated_data = ImageFieldProcessor().process(
+            self.optimized_image_fields, validated_data
+        )
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        validated_data = ImageFieldProcessor().process(
+            self.optimized_image_fields, validated_data
+        )
+        return super().update(instance, validated_data)
+
 
 class SiteImageSerializer(ImageOptimizationMixin, serializers.ModelSerializer):
     optimized_image_fields = {"image": 150}
@@ -82,6 +95,18 @@ class SiteImageSerializer(ImageOptimizationMixin, serializers.ModelSerializer):
         if value and site and value.site_id != site.id:
             raise serializers.ValidationError("Page must belong to the requested site.")
         return value
+
+    def create(self, validated_data):
+        validated_data = ImageFieldProcessor().process(
+            self.optimized_image_fields, validated_data
+        )
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        validated_data = ImageFieldProcessor().process(
+            self.optimized_image_fields, validated_data
+        )
+        return super().update(instance, validated_data)
 
 
 class SiteSummarySerializer(serializers.ModelSerializer):

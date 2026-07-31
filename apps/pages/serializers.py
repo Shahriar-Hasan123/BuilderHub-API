@@ -1,5 +1,6 @@
 from django.utils.text import slugify
 from rest_framework import serializers
+from apps.core.utils.image_field_processor import ImageFieldProcessor
 
 from apps.core.mixins import ImageOptimizationMixin
 from apps.sites.serializers import SiteSummarySerializer
@@ -52,3 +53,15 @@ class PageSerializer(ImageOptimizationMixin, serializers.ModelSerializer):
                 "A page with this title already exists for this site."
             )
         return value
+    
+    def create(self, validated_data):
+        validated_data = ImageFieldProcessor().process(
+            self.optimized_image_fields, validated_data
+        )
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        validated_data = ImageFieldProcessor().process(
+            self.optimized_image_fields, validated_data
+        )
+        return super().update(instance, validated_data)

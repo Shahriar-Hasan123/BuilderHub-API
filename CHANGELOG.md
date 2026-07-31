@@ -25,6 +25,7 @@ All notable changes to this project are documented in this file.
 ### Image Optimization
 - Added `ImageOptimizer` service for upload-time image compression and format handling.
 - Added `ImageOptimizationMixin` to auto-compress configured DRF image fields during `create()` and `update()`.
+- Refactored image compression logic by replacing `ImageOptimizationMixin` with a dedicated `ImageFieldProcessor` service in `apps/core/utils/image_field_processor.py`; `SiteSerializer`, `SiteImageSerializer`, and `PageSerializer` now invoke it directly from their own `create()`/`update()` methods with no behavior change.
 
 ### Site Images API
 - Added nested site image endpoints:
