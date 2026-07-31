@@ -16,9 +16,12 @@ class SiteImageUploadService:
         images = request.FILES.getlist("image")
 
         for image in images:
-
-            data = request.data.copy()
-            data["image"] = image
+            data = {}
+            for key, values in request.data.lists():
+                if key == "image":
+                    data[key] = image
+                else:
+                    data[key] = values[0] if len(values) == 1 else values
 
             serializer = SiteImageSerializer(
                 data=data,
@@ -36,9 +39,7 @@ class SiteImageUploadService:
                     created_by=self.user,
                 )
 
-                uploaded.append(
-                    SiteImageSerializer(instance).data
-                )
+                uploaded.append(SiteImageSerializer(instance).data)
 
             except serializers.ValidationError as exc:
 
