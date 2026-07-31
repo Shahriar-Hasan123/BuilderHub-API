@@ -99,3 +99,5 @@ All notable changes to this project are documented in this file.
 - HTMLMinifier: replaced regex-based whitespace collapsing with DOM-level text-node processing, so internal newlines/whitespace in text content are properly collapsed
 - HTMLMinifier: content inside `<script>`, `<style>`, `<pre>`, and `<textarea>` is left untouched
 - Added dedicated unit tests for HTMLMinifier covering malformed tags, script/pre/textarea preservation, and inline-element spacing
+- Fixed upload path generation for site and page assets so uploads use the provided site/page names during create/save flows
+- Enforced required site and page names/titles at the model and serializer layers for create/update requests
