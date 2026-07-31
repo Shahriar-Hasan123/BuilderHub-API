@@ -9,6 +9,7 @@ from .models import Page
 
 class PageSerializer(serializers.ModelSerializer):
     optimized_image_fields = {"hero_image": 300}
+    title = serializers.CharField(required=True, allow_blank=False)
 
     site = SiteSummarySerializer(read_only=True)
 

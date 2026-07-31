@@ -1,11 +1,14 @@
 from rest_framework import serializers
-from apps.core.utils.image_field_processor import ImageFieldProcessor
 from PIL import Image
+
+from apps.core.utils.image_field_processor import ImageFieldProcessor
+
 from .models import Site, SiteImage
 
 
 class SiteSerializer(serializers.ModelSerializer):
     optimized_image_fields = {"favicon": 50, "logo": 50, "thumbnail": 50}
+    name = serializers.CharField(required=True, allow_blank=False)
 
     class Meta:
         model = Site

@@ -19,7 +19,26 @@ class PageImageUploadTo:
         self.folder = folder
 
     def __call__(self, instance, filename):
-        site_slug = slugify(getattr(instance.site, "name", "site")) or "site"
+        related_site = getattr(instance, "site", None)
+        site_name = getattr(related_site, "name", None) or getattr(instance, "name", "site")
+        site_slug = slugify(site_name) or "site"
+
+        page_slug = slugify(getattr(instance, "slug", "")) or slugify(
+            getattr(instance, "title", "page")
+        )
+        return f"sites/{site_slug}/pages/{page_slug}/{self.folder}/{filename}"
+
+
+@deconstructible
+class PageFileUploadTo:
+    def __init__(self, folder):
+        self.folder = folder
+
+    def __call__(self, instance, filename):
+        related_site = getattr(instance, "site", None)
+        site_name = getattr(related_site, "name", None) or getattr(instance, "name", "site")
+        site_slug = slugify(site_name) or "site"
+
         page_slug = slugify(getattr(instance, "slug", "")) or slugify(
             getattr(instance, "title", "page")
         )
@@ -37,7 +56,7 @@ class Page(BaseModel):
         BLOG = "blog", "Blog Page"
 
     site = models.ForeignKey(Site, on_delete=models.CASCADE, related_name="pages")
-    title = models.CharField(max_length=255)
+    title = models.CharField(max_length=255, blank=False)
     slug = models.SlugField(max_length=100, blank=True)
     meta_description = models.CharField(max_length=300, blank=True)
     status = models.CharField(
@@ -49,13 +68,13 @@ class Page(BaseModel):
     enable = models.BooleanField(default=True)
     canonical_url = models.URLField(blank=True)
     html = models.FileField(
-        upload_to="pages/html/",
+        upload_to=PageFileUploadTo("html"),
         validators=[html_file_validator, validate_file_size],
         blank=True,
         null=True,
     )
     css = models.FileField(
-        upload_to="pages/css/",
+        upload_to=PageFileUploadTo("css"),
         validators=[css_file_validator, validate_file_size],
         blank=True,
         null=True,

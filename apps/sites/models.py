@@ -21,15 +21,28 @@ class SiteImageUploadTo:
         self.folder = folder
 
     def __call__(self, instance, filename):
-        site_slug = (
-            slugify(getattr(instance.site, "name", getattr(instance, "name", "site")))
-            or "site"
-        )
-        if getattr(instance, "page_id", None):
-            page_slug = slugify(getattr(instance.page, "slug", "")) or slugify(
-                getattr(instance.page, "title", "page")
+        related_site = getattr(instance, "site", None)
+        site_name = getattr(related_site, "name", None) or getattr(instance, "name", "site")
+        site_slug = slugify(site_name) or "site"
+
+        related_page = getattr(instance, "page", None)
+        if getattr(instance, "page_id", None) and related_page is not None:
+            page_slug = slugify(getattr(related_page, "slug", "")) or slugify(
+                getattr(related_page, "title", "page")
             )
             return f"sites/{site_slug}/pages/{page_slug}/{self.folder}/{filename}"
+        return f"sites/{site_slug}/{self.folder}/{filename}"
+
+
+@deconstructible
+class SiteFileUploadTo:
+    def __init__(self, folder):
+        self.folder = folder
+
+    def __call__(self, instance, filename):
+        related_site = getattr(instance, "site", None)
+        site_name = getattr(related_site, "name", None) or getattr(instance, "name", "site")
+        site_slug = slugify(site_name) or "site"
         return f"sites/{site_slug}/{self.folder}/{filename}"
 
 
@@ -44,7 +57,7 @@ class Site(BaseModel):
         on_delete=models.CASCADE,
         related_name="sites",
     )
-    name = models.CharField(max_length=255)
+    name = models.CharField(max_length=255, blank=False)
 
     url = models.URLField(blank=True, null=True, unique=True)
 
@@ -92,13 +105,13 @@ class Site(BaseModel):
         related_name="sites_updated",
     )
     header = models.FileField(
-        upload_to="sites/header/",
+        upload_to=SiteFileUploadTo("header"),
         validators=[html_file_validator, validate_file_size],
         blank=True,
         null=True,
     )
     footer = models.FileField(
-        upload_to="sites/footer/",
+        upload_to=SiteFileUploadTo("footer"),
         validators=[html_file_validator, validate_file_size],
         blank=True,
         null=True,

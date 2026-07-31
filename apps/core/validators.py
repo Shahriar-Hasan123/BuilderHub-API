@@ -107,8 +107,8 @@ validate_thumbnail_image = ImageValidator(
 )
 
 validate_hero_image = ImageValidator(
-    min_width=1200,
-    min_height=600,
+    min_width=500,
+    min_height=300,
     max_width=3840,
     max_height=2160,
 )
