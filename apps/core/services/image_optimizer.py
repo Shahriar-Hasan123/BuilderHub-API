@@ -5,7 +5,6 @@ from PIL import Image
 
 from apps.core.exceptions import UnsupportedImageFormatError
 
-COMPRESSION_SKIP_THRESHOLD_KB = 500
 PNG_RESIZE_MAX_DIMENSION = 1500
 PNG_QUANTIZE_SAMPLE_SIZE = (256, 256)
 PNG_QUANTIZE_COLOR_LIMIT = 256
@@ -19,7 +18,7 @@ class ImageOptimizer:
     and vector/animated formats, converts opaque PNGs to JPEG, keeps
     transparent PNGs as PNG"""
 
-    def compress(self, file):
+    def compress(self, file) -> tuple[bytes, str]:
         if file.size == 0:
             raise ValueError("Cannot compress an empty file")
 
@@ -28,10 +27,7 @@ class ImageOptimizer:
         if ext not in SUPPORTED_EXTENSIONS:
             raise UnsupportedImageFormatError(f"Unsupported file extension: {ext}")
 
-        if (
-            file.size <= COMPRESSION_SKIP_THRESHOLD_KB * 1024
-            or ext in SKIP_COMPRESSION_EXTENSIONS
-        ):
+        if ext in SKIP_COMPRESSION_EXTENSIONS:
             return self._as_bytes(file), file.name
 
         file.seek(0)
@@ -52,7 +48,10 @@ class ImageOptimizer:
             return image.getchannel("A").getextrema()[0] < 255
 
         if image.mode == "P" and "transparency" in image.info:
-            return True
+            transparent_index = image.info["transparency"]
+            if isinstance(transparent_index, int):
+                return transparent_index in image.getdata()
+            return any(alpha < 255 for alpha in transparent_index)
 
         return False
 
@@ -87,10 +86,10 @@ class ImageOptimizer:
         sample = image.copy()
         sample.thumbnail(PNG_QUANTIZE_SAMPLE_SIZE)
 
-        colors = sample.convert("RGBA").getcolors(maxcolors=100000)
+        colors = sample.convert("RGBA").getcolors(maxcolors=PNG_QUANTIZE_COLOR_LIMIT)
 
         # Photo-like transparent PNG
-        if colors is None or len(colors) > PNG_QUANTIZE_COLOR_LIMIT:
+        if colors is None:
             return image
 
         if "A" in image.getbands():
@@ -100,16 +99,9 @@ class ImageOptimizer:
                 dither=Image.Dither.NONE,
             )
 
-        if image.mode == "P" and "transparency" in image.info:
-            return image.convert("RGBA").quantize(
-                colors=PNG_QUANTIZE_COLOR_LIMIT,
-                method=Image.Quantize.FASTOCTREE,
-                dither=Image.Dither.NONE,
-            )
-
-        return image.convert("RGB").quantize(
+        return image.convert("RGBA").quantize(
             colors=PNG_QUANTIZE_COLOR_LIMIT,
-            method=Image.Quantize.MEDIANCUT,
+            method=Image.Quantize.FASTOCTREE,
             dither=Image.Dither.NONE,
         )
 
