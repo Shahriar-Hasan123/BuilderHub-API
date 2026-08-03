@@ -22,7 +22,9 @@ class SiteImageUploadTo:
 
     def __call__(self, instance, filename):
         related_site = getattr(instance, "site", None)
-        site_name = getattr(related_site, "name", None) or getattr(instance, "name", "site")
+        site_name = getattr(related_site, "name", None) or getattr(
+            instance, "name", "site"
+        )
         site_slug = slugify(site_name) or "site"
 
         related_page = getattr(instance, "page", None)
@@ -41,7 +43,9 @@ class SiteFileUploadTo:
 
     def __call__(self, instance, filename):
         related_site = getattr(instance, "site", None)
-        site_name = getattr(related_site, "name", None) or getattr(instance, "name", "site")
+        site_name = getattr(related_site, "name", None) or getattr(
+            instance, "name", "site"
+        )
         site_slug = slugify(site_name) or "site"
         return f"sites/{site_slug}/{self.folder}/{filename}"
 
@@ -131,6 +135,11 @@ class Site(BaseModel):
 
 
 class SiteImage(BaseModel):
+    class Device(models.TextChoices):
+        DESKTOP = "desktop", "Desktop"
+        TABLET = "tablet", "Tablet"
+        MOBILE = "mobile", "Mobile"
+
     site = models.ForeignKey(
         Site,
         on_delete=models.CASCADE,
@@ -156,7 +165,9 @@ class SiteImage(BaseModel):
     )
     width = models.PositiveIntegerField(blank=True, null=True)
     height = models.PositiveIntegerField(blank=True, null=True)
-
+    
+    device = models.CharField(max_length=20, choices=Device, default=Device.DESKTOP)
+    
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

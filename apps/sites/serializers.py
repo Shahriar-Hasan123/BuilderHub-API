@@ -74,6 +74,7 @@ class SiteImageSerializer(serializers.ModelSerializer):
             "file_size",
             "width",
             "height",
+            "device",
             "created_by",
             "created_at",
             "updated_at",

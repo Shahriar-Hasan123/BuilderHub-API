@@ -6,6 +6,7 @@ from django.core.cache import cache
 from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
+from django.utils.text import slugify
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -193,7 +194,7 @@ class SitePublishAPITests(APITestCase):
         first_response = self.client.post(self.publish_url)
         self.assertEqual(first_response.status_code, status.HTTP_200_OK)
 
-        orphan_path = f"assets/sites/{self.site.id}/pages/home.json"
+        orphan_path = f"assets/sites/{slugify(self.site.name)}/pages/home.json"
         self.assertTrue(default_storage.exists(orphan_path))
 
         page_to_disable.enable = False
@@ -211,7 +212,7 @@ class SitePublishAPITests(APITestCase):
         first_response = self.client.post(self.publish_url)
         self.assertEqual(first_response.status_code, status.HTTP_200_OK)
 
-        header_path = f"assets/sites/{self.site.id}/header.json"
+        header_path = f"assets/sites/{slugify(self.site.name)}/header.json"
         self.assertTrue(default_storage.exists(header_path))
 
         self.site.header.delete(save=True)

@@ -37,6 +37,7 @@ All notable changes to this project are documented in this file.
 - Added `SiteImageSerializer` and site-scoped image views.
 - Implemented multi-image upload support for site images via `SiteImageUploadService`, allowing a single request to upload several images at once and return per-file success/error results.
 - Enforced site-level lock checks on site-image write operations so uploads, updates, and deletes are protected by the same lock model used for site editing.
+- Added `SiteImage.device` choice field with desktop/tablet/mobile options and defaulted to desktop when omitted.
 
 ### Authentication
 - Added JWT authentication via `djangorestframework-simplejwt` (access/refresh token rotation, blacklist-after-rotation)
@@ -94,6 +95,8 @@ All notable changes to this project are documented in this file.
 ### Fixed
 - Site publish: safe republish — writes now use a temp-then-swap pattern instead of delete-then-save, preventing loss of live assets on partial failure
 - Site publish: removed orphaned page JSON files (disabled/deleted/renamed pages) after each publish
+- Site publish: fixed republish test and asset existence expectations to use slugified
+  asset paths instead of `site.id`-based paths
 - Site publish: DB status update now wrapped in `transaction.atomic()`, applied only after all files are safely written
 - Site publish: empty header/footer file content is now rejected (400), not just missing files
 - HTMLMinifier: replaced regex-based whitespace collapsing with DOM-level text-node processing, so internal newlines/whitespace in text content are properly collapsed
@@ -101,3 +104,13 @@ All notable changes to this project are documented in this file.
 - Added dedicated unit tests for HTMLMinifier covering malformed tags, script/pre/textarea preservation, and inline-element spacing
 - Fixed upload path generation for site and page assets so uploads use the provided site/page names during create/save flows
 - Enforced required site and page names/titles at the model and serializer layers for create/update requests
+
+### ImageOptimizer tweaks (2026-08-03)
+- Removed unreachable RGB+MEDIANCUT fallback in `_optimize_transparent_png`; the method
+  is only called for confirmed-transparent images, so the non-transparent path
+  could never execute.
+- Cap `getcolors(maxcolors=...)` to `PNG_QUANTIZE_COLOR_LIMIT` on the 256x256
+  sample to let Pillow short-circuit with `None` for photo-like images and avoid
+  a full color scan.
+- Restore `SKIP_COMPRESSION_EXTENSIONS` handling so `.svg` and `.gif` bypass
+  Pillow-based compression instead of raising `UnsupportedImageFormatError`.

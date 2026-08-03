@@ -6,10 +6,7 @@ from django.test import TestCase
 from PIL import Image
 
 from apps.core.exceptions import UnsupportedImageFormatError
-from apps.core.services.image_optimizer import (
-    COMPRESSION_SKIP_THRESHOLD_KB,
-    ImageOptimizer,
-)
+from apps.core.services.image_optimizer import ImageOptimizer
 
 
 def _random_png_bytes(width=900, height=900, mode="RGBA"):
@@ -33,21 +30,22 @@ class ImageOptimizerCompressTests(TestCase):
     def setUp(self):
         self.optimizer = ImageOptimizer()
 
-    def test_small_file_returned_unchanged(self):
+    def test_small_png_converts_to_jpeg(self):
         content = _solid_png_bytes()
         file = SimpleUploadedFile("small.png", content, content_type="image/png")
         result_bytes, name = self.optimizer.compress(file)
-        self.assertEqual(result_bytes, content)
-        self.assertEqual(name, "small.png")
+        self.assertNotEqual(result_bytes, content)
+        self.assertTrue(name.endswith(".jpg"))
+        self.assertEqual(Image.open(io.BytesIO(result_bytes)).format, "JPEG")
 
     def test_svg_skipped_regardless_of_size(self):
-        content = os.urandom((COMPRESSION_SKIP_THRESHOLD_KB + 10) * 1024)
+        content = os.urandom(510 * 1024)
         file = SimpleUploadedFile("large.svg", content, content_type="image/svg+xml")
         result_bytes, name = self.optimizer.compress(file)
         self.assertEqual(result_bytes, content)
 
     def test_gif_skipped_regardless_of_size(self):
-        content = os.urandom((COMPRESSION_SKIP_THRESHOLD_KB + 10) * 1024)
+        content = os.urandom(510 * 1024)
         file = SimpleUploadedFile("large.gif", content, content_type="image/gif")
         result_bytes, name = self.optimizer.compress(file)
         self.assertEqual(result_bytes, content)

@@ -21,6 +21,7 @@ BuilderHub-API/
 │   ├── sites/             # Site models, serializers, views, URLs
 │   └── pages/             # Page models, serializers, views, URLs
 ├── config/                # Django settings and URL routing
+├── docs/                  # project documentation and reports
 ├── media/                 # Uploaded files in development
 ├── schema.yml             # Generated OpenAPI schema
 ├── docker-compose.yml     # PostgreSQL container setup
@@ -29,6 +30,13 @@ BuilderHub-API/
 ├── requirements.txt
 └── README.md
 ```
+
+## Documentation
+
+Project reports and worklogs are stored in `docs/`.
+For the image optimization implementation and findings, see:
+
+- `docs/image-optimization-report`
 
 ## Prerequisites
 

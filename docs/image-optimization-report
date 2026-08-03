@@ -1,0 +1,145 @@
+# Image Optimization Report — 2026-08-03
+
+## Task Overview
+The objective was to improve the app's image upload pipeline by adding upload-time image optimization, ensuring some image formats bypass compression correctly, and documenting the implementation and errors encountered.
+
+This task covered:
+- `apps/core/services/image_optimizer.py`
+- `apps/core/utils/image_field_processor.py`
+- `apps/core/validators.py`
+- `apps/sites/serializers.py`
+- `apps/sites/models.py`
+- Documentation updates in `CHANGELOG.md` and `docs/worklog/2026-08-03.md`
+
+## Implementation Summary
+
+### 1. Image optimizer pipeline
+The optimizer is implemented in `apps/core/services/image_optimizer.py` as `ImageOptimizer`.
+
+Key responsibilities:
+- skip compression for intentionally excluded formats
+- identify transparent PNGs and optimize them differently from opaque PNGs
+- compress JPEG/WebP/AVIF
+- preserve `.svg` and `.gif` by returning their raw bytes instead of passing through Pillow
+
+The serializer pipeline uses `apps/core/utils/image_field_processor.py` to apply optimization during `create()` and `update()`.
+
+### 2. Serializer integration
+`apps/sites/serializers.py` now includes:
+- `SiteSerializer` image fields optimized on save: `favicon`, `logo`, `thumbnail`
+- `SiteImageSerializer` image field optimized on save: `image`
+
+The serializer process:
+1. `ImageFieldProcessor.process()` checks configured image fields.
+2. If an uploaded file exists, it calls `ImageOptimizer.compress()`.
+3. If compression succeeds, the optimized bytes replace the incoming file before model save.
+4. If the optimized file still exceeds the configured max size, validation fails.
+
+### 3. SiteImage model addition
+Added `SiteImage` support in `apps/sites/models.py` to store regular site images with metadata and enable the same upload-time optimization flow.
+
+This provides a reusable image resource for sites while keeping optimization centralized in the `ImageFieldProcessor` service.
+
+## Workflow and Pipeline
+
+The image upload workflow is:
+
+1. User submits a multipart request with site or site-image data.
+2. DRF serializer validates the payload, including required fields and file-level validators.
+3. Validators such as `ImageValidator`, `FileExtensionValidator`, and `validate_file_size` run before compression.
+4. On serializer `create()`/`update()`, `ImageFieldProcessor.process()` is invoked.
+5. `ImageFieldProcessor` calls `ImageOptimizer.compress()` for each configured image field.
+6. After compression, `ImageFieldProcessor` checks the optimized size against the serializer's configured max KB.
+7. If the optimized image still exceeds the configured max, a serializer validation error is raised.
+8. Otherwise the optimized bytes are wrapped in `ContentFile` and assigned back to the serializer field.
+9. The model saves, and Django stores the file at the configured upload path.
+
+### Validation flowchart
+
+```
+Client -> DRF Serializer validation
+         -> field validators (ImageValidator / FileExtensionValidator / validate_file_size)
+         -> create()/update() hook
+         -> ImageFieldProcessor.process()
+```
+
+### Compression flowchart
+
+```
+ImageFieldProcessor.process()
+  -> ImageOptimizer.compress(file)
+      -> ext = lower(file.name extension)
+      -> if ext in {'.svg', '.gif'}:
+           -> return raw bytes unchanged
+      -> else:
+           -> open file with Pillow -> load -> copy image
+           -> if ext == '.png':
+                -> if transparent:
+                     -> _optimize_transparent_png()
+                     -> save as PNG
+                -> else:
+                     -> convert RGB -> save as JPEG
+           -> elif ext in {'.jpg', '.jpeg'}:
+                -> save as JPEG quality=75, progressive
+           -> elif ext == '.webp':
+                -> save as WEBP quality=75
+           -> elif ext == '.avif':
+                -> save as AVIF quality=60
+           -> else:
+                -> raise UnsupportedImageFormatError
+      -> return bytes, filename
+  -> if len(bytes) > max_kb * 1024:
+       -> raise serializer.ValidationError
+  -> else:
+       -> wrap bytes in ContentFile and assign back to field
+       -> return validated_data
+```
+## Important behavior changes
+
+### `.svg` and `.gif` handling
+These file extensions now bypass Pillow compression entirely via `SKIP_COMPRESSION_EXTENSIONS`.
+That means:
+- SVG files are passed through raw and not decoded by Pillow.
+- GIFs are preserved rather than failing under Pillow open/convert semantics.
+
+### Transparent PNG optimization
+Transparent PNGs are optimized by analyzing a 256x256 sample, then either:
+- returning the original image unchanged for photo-like images, or
+- quantizing transparent images to reduce size.
+
+## Errors encountered and fixes
+
+
+### 1. `Image.copy()` caused a Pillow assertion failure on some uploads
+**Issue**: calling `image.copy()` on a partially loaded Pillow image could trigger an assertion error during optimization.
+**Fix**: ensured the file is opened, loaded, and copied only after `image.load()`, preventing the deepcopy/assertion failure in the compression path.
+
+### 2. Unreachable RGB+MEDIANCUT path
+**Issue**: `_optimize_transparent_png()` contained a fallback branch for opaque images even though it only runs for transparent PNGs.
+**Fix**: simplified the function to only handle transparent quantization and removed unreachable code.
+
+### 3. Poor performance on photo-like transparent PNGs
+**Issue**: Pillow was doing an expensive full sample color scan for images with more than 256 distinct colors.
+**Fix**: capped `getcolors(maxcolors=...)` at `PNG_QUANTIZE_COLOR_LIMIT` so Pillow returns `None` quickly for photo-like images.
+
+## Verification
+
+### Files changed
+- `apps/core/services/image_optimizer.py`
+- `apps/core/utils/image_field_processor.py`
+- `apps/sites/serializers.py`
+- `apps/sites/models.py`
+- `CHANGELOG.md`
+- `docs/worklog/2026-08-03.md`
+
+### Recommended verification commands
+```bash
+cd /home/w3e101/Documents/Builder
+source venv/bin/activate
+python manage.py test apps.core.tests apps.sites.tests
+```
+
+### Suggested demo scenario
+- upload a desktop site image with `device=desktop`
+- upload a GIF image and confirm it does not raise optimization errors
+- upload a transparent PNG and verify the optimizer handles it without converting wrongly
