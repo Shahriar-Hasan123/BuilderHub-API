@@ -3,6 +3,7 @@ import json
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.db import transaction
+from django.utils.text import slugify
 
 from apps.core.exceptions import PublishValidationError
 from apps.pages.models import Page
@@ -35,11 +36,12 @@ class PublishService:
 
     def _build_artifacts(self, site, pages):
         artifacts = []
+        site_slug = slugify(site.name)
 
         header_html = self.minifier.minify(self._read(site.header))
         artifacts.append(
             (
-                f"assets/sites/{site.id}/header.json",
+                f"assets/sites/{site_slug}/header.json",
                 json.dumps(self.converter.convert_header(site, header_html)),
             )
         )
@@ -47,7 +49,7 @@ class PublishService:
         footer_html = self.minifier.minify(self._read(site.footer))
         artifacts.append(
             (
-                f"assets/sites/{site.id}/footer.json",
+                f"assets/sites/{site_slug}/footer.json",
                 json.dumps(self.converter.convert_footer(site, footer_html)),
             )
         )
@@ -56,7 +58,7 @@ class PublishService:
             page_html = self.minifier.minify(self._read(page.html))
             artifacts.append(
                 (
-                    f"assets/sites/{site.id}/pages/{page.slug}.json",
+                    f"assets/sites/{site_slug}/pages/{page.slug}.json",
                     json.dumps(self.converter.convert_page(site, page, page_html)),
                 )
             )
@@ -87,7 +89,7 @@ class PublishService:
         return path
 
     def _cleanup_orphan_pages(self, site, pages):
-        pages_dir = f"assets/sites/{site.id}/pages/"
+        pages_dir = f"assets/sites/{slugify(site.name)}/pages/"
         expected_filenames = {f"{page.slug}.json" for page in pages}
 
         try:
@@ -121,6 +123,6 @@ class PublishService:
         return {
             "site_id": site.id,
             "status": "published",
-            "assets_path": f"assets/sites/{site.id}/",
+            "assets_path": f"assets/sites/{slugify(site.name)}/",
             "files": written_files,
         }
