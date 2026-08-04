@@ -78,6 +78,7 @@ All notable changes to this project are documented in this file.
 - Added `HTMLMinifier` service: repairs malformed HTML and collapses whitespace (separate from the blog-import cleaner/sanitizer)
 - Added `HTMLToJSONConverter`: wraps minified HTML + metadata into a JSON dict (not a DOM/AST parser)
 - Added `PublishService`: validates readiness, writes JSON artifacts to `media/assets/sites/{id}/`, flips Site/Page status to `published` only after all writes succeed
+- Added `SitePublishVersion` model to track publish versions with header/footer hashes, per-page content hashes, version numbers, and publisher metadata
 - Added `POST /api/v1/sites/{id}/publish/` (reuses existing permission + lock enforcement)
 - Exposed `header`/`footer` via the Site API (multipart upload), in addition to Django admin
 
