@@ -165,9 +165,9 @@ class SiteImage(BaseModel):
     )
     width = models.PositiveIntegerField(blank=True, null=True)
     height = models.PositiveIntegerField(blank=True, null=True)
-    
+
     device = models.CharField(max_length=20, choices=Device, default=Device.DESKTOP)
-    
+
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -192,3 +192,35 @@ class SiteImage(BaseModel):
         return f"Image ({self.site.name})" + (
             f" - {self.page.title}" if self.page_id else ""
         )
+
+
+class SitePublishVersion(BaseModel):
+    site = models.ForeignKey(
+        Site, on_delete=models.CASCADE, related_name="publish_versions"
+    )
+    version_number = models.PositiveIntegerField()
+    header_hash = models.CharField(max_length=256)
+    footer_hash = models.CharField(max_length=256)
+    page_hashes = models.JSONField(
+        default=dict, help_text="Mapping of page slug to its content hash."
+    )
+    published_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="site_publish_versions",
+    )
+
+    class Meta:
+        verbose_name = "Site Publish Version"
+        verbose_name_plural = "Site Publish Versions"
+        ordering = ["-version_number"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["site", "version_number"], name="unique_site_version_number"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.site.name} v{self.version_number}"
