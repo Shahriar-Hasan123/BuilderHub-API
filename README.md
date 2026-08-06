@@ -238,6 +238,8 @@ All API routes are versioned under `/api/v1` and use a no-trailing-slash convent
 | PATCH | `/api/v1/sites/{pk}` | Partially update a site | Yes |
 | DELETE | `/api/v1/sites/{pk}` | Delete a site | Yes |
 | POST | `/api/v1/sites/{pk}/publish` | Publish a site by generating header/footer/page JSON assets | Yes |
+| GET | `/api/v1/sites/{pk}/publish-versions` | List all published versions for a site | Yes |
+| POST | `/api/v1/sites/{pk}/rollback/{version_number}` | Roll back a site to a previous published version | Yes |
 
 ### Site Images
 
@@ -258,6 +260,10 @@ All API routes are versioned under `/api/v1` and use a no-trailing-slash convent
 Publishing a site generates JSON files for the site header, footer, and enabled pages, then marks the site and its pages as published.
 
 - Endpoint: `POST /api/v1/sites/{pk}/publish`
+- Publish history: `GET /api/v1/sites/{pk}/publish-versions`
+- Rollback to a previous version: `POST /api/v1/sites/{pk}/rollback/{version_number}`
+
+The publish pipeline now stores content-addressable blobs under `assets/blobs/`, records each publish as a versioned snapshot, and can restore a prior version by re-materializing previously stored blobs without regenerating content.
 - Requires a valid site lock for the current user
 - Returns a payload with the published site ID, status, asset path, and generated file list
 - Returns `400 Bad Request` when the site is missing header/footer HTML or has no enabled page HTML
