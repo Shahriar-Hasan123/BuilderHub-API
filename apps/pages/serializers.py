@@ -1,7 +1,7 @@
 from django.utils.text import slugify
 from rest_framework import serializers
-from apps.core.utils.image_field_processor import ImageFieldProcessor
 
+from apps.core.utils.image_field_processor import ImageFieldProcessor
 from apps.sites.serializers import SiteSummarySerializer
 
 from .models import Page
@@ -53,7 +53,7 @@ class PageSerializer(serializers.ModelSerializer):
                 "A page with this title already exists for this site."
             )
         return value
-    
+
     def create(self, validated_data):
         validated_data = ImageFieldProcessor().process(
             self.optimized_image_fields, validated_data

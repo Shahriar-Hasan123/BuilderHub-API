@@ -18,8 +18,12 @@ from apps.core.services.resource_lock import SiteLockService
 from apps.sites.services.publish_service import PublishService
 from apps.sites.services.site_image_upload_service import SiteImageUploadService
 
-from .models import Site, SiteImage
-from .serializers import SiteImageSerializer, SiteSerializer
+from .models import Site, SiteImage, SitePublishVersion
+from .serializers import (
+    SiteImageSerializer,
+    SitePublishVersionSerializer,
+    SiteSerializer,
+)
 
 
 @site_schema_view(
@@ -348,7 +352,60 @@ class SitePublishAPIView(APIView, SiteLockMixin):
         self.check_object_permissions(request, site)
         self.enforce_site_lock(request, site)
         try:
-            result = PublishService().publish(site)
+            result = PublishService().publish(site, user=request.user)
+        except PublishValidationError as exc:
+            raise DRFValidationError(str(exc))
+
+        return Response(result, status=status.HTTP_200_OK)
+
+
+@site_schema_view(
+    get=site_schema(
+        "List publish versions",
+        "Return all publish versions for a site, most recent first.",
+        responses=SitePublishVersionSerializer(many=True),
+    )
+)
+class SitePublishVersionListAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated, HasUpdatePermission]
+
+    def get_site(self, pk):
+        site = get_object_or_404(Site, pk=pk)
+        self.check_object_permissions(self.request, site)
+        return site
+
+    def get(self, request, pk):
+        site = self.get_site(pk)
+        versions = site.publish_versions.all()
+        serializer = SitePublishVersionSerializer(versions, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@site_schema_view(
+    post=site_schema(
+        "Rollback site to a previous publish version",
+        (
+            "Re-materializes a previous publish version's assets as the site's "
+            "current published output, without regenerating any content."
+        ),
+        responses=object_response(),
+    )
+)
+class SiteRollbackAPIView(APIView, SiteLockMixin):
+    permission_classes = [permissions.IsAuthenticated, HasUpdatePermission]
+
+    def get_site(self, pk):
+        return get_object_or_404(Site, pk=pk)
+
+    def post(self, request, pk, version_number):
+        site = self.get_site(pk)
+        self.check_object_permissions(request, site)
+        self.enforce_site_lock(request, site)
+        version = get_object_or_404(
+            SitePublishVersion, site=site, version_number=version_number
+        )
+        try:
+            result = PublishService().rollback(site, version, request.user)
         except PublishValidationError as exc:
             raise DRFValidationError(str(exc))
 

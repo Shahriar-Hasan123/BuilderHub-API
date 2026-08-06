@@ -72,6 +72,7 @@ class SitePublishAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["status"], "published")
+        self.assertEqual(response.data["version_number"], 1)
         self.assertEqual(len(response.data["files"]), 3)  # header + footer + 1 page
 
         self.site.refresh_from_db()
@@ -254,7 +255,7 @@ class SitePublishAPITests(APITestCase):
 
         self.assertEqual(
             set(response.data.keys()),
-            {"site_id", "status", "assets_path", "files"},
+            {"site_id", "status", "version_number", "assets_path", "files"},
         )
 
         header_path = next(

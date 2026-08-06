@@ -1,9 +1,9 @@
-from rest_framework import serializers
 from PIL import Image
+from rest_framework import serializers
 
 from apps.core.utils.image_field_processor import ImageFieldProcessor
 
-from .models import Site, SiteImage
+from .models import Site, SiteImage, SitePublishVersion
 
 
 class SiteSerializer(serializers.ModelSerializer):
@@ -24,6 +24,7 @@ class SiteSerializer(serializers.ModelSerializer):
             "global_css",
             "header",
             "footer",
+            "current_published_version",
             "created_by",
             "created_at",
             "updated_at",
@@ -32,6 +33,7 @@ class SiteSerializer(serializers.ModelSerializer):
         read_only_fields = [
             "id",
             "user",
+            "current_published_version",
             "created_by",
             "updated_by",
             "created_at",
@@ -143,3 +145,18 @@ class SiteSummarySerializer(serializers.ModelSerializer):
     class Meta:
         model = Site
         fields = ["id", "name", "status", "url"]
+
+
+class SitePublishVersionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SitePublishVersion
+        fields = [
+            "id",
+            "version_number",
+            "header_hash",
+            "footer_hash",
+            "page_hashes",
+            "published_by",
+            "created_at",
+        ]
+        read_only_fields = fields

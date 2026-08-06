@@ -1,9 +1,9 @@
 from rest_framework import serializers
+
 from apps.sites.serializers import SiteImageSerializer
 
 
 class SiteImageUploadService:
-
     def __init__(self, site, user):
         self.site = site
         self.user = user
@@ -42,7 +42,6 @@ class SiteImageUploadService:
                 uploaded.append(SiteImageSerializer(instance).data)
 
             except serializers.ValidationError as exc:
-
                 failed.append(
                     {
                         "file_name": image.name,

@@ -20,7 +20,9 @@ class PageImageUploadTo:
 
     def __call__(self, instance, filename):
         related_site = getattr(instance, "site", None)
-        site_name = getattr(related_site, "name", None) or getattr(instance, "name", "site")
+        site_name = getattr(related_site, "name", None) or getattr(
+            instance, "name", "site"
+        )
         site_slug = slugify(site_name) or "site"
 
         page_slug = slugify(getattr(instance, "slug", "")) or slugify(
@@ -36,7 +38,9 @@ class PageFileUploadTo:
 
     def __call__(self, instance, filename):
         related_site = getattr(instance, "site", None)
-        site_name = getattr(related_site, "name", None) or getattr(instance, "name", "site")
+        site_name = getattr(related_site, "name", None) or getattr(
+            instance, "name", "site"
+        )
         site_slug = slugify(site_name) or "site"
 
         page_slug = slugify(getattr(instance, "slug", "")) or slugify(

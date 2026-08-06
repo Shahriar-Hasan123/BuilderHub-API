@@ -14,15 +14,21 @@ def build_schema(tag, summary, description, request=None, responses=None, **kwar
 
 
 def auth_schema(summary, description, request=None, responses=None, **kwargs):
-    return build_schema("Auth", summary, description, request=request, responses=responses, **kwargs)
+    return build_schema(
+        "Auth", summary, description, request=request, responses=responses, **kwargs
+    )
 
 
 def page_schema(summary, description, request=None, responses=None, **kwargs):
-    return build_schema("Pages", summary, description, request=request, responses=responses, **kwargs)
+    return build_schema(
+        "Pages", summary, description, request=request, responses=responses, **kwargs
+    )
 
 
 def site_schema(summary, description, request=None, responses=None, **kwargs):
-    return build_schema("Sites", summary, description, request=request, responses=responses, **kwargs)
+    return build_schema(
+        "Sites", summary, description, request=request, responses=responses, **kwargs
+    )
 
 
 def object_response():

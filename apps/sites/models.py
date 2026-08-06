@@ -121,6 +121,14 @@ class Site(BaseModel):
         null=True,
     )
 
+    current_published_version = models.ForeignKey(
+        "sites.SitePublishVersion",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+
     class Meta:
         verbose_name = "Site"
         verbose_name_plural = "Sites"

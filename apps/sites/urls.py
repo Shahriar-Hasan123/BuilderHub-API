@@ -7,6 +7,8 @@ from .views import (
     SiteListCreateAPIView,
     SiteLockAPIView,
     SitePublishAPIView,
+    SitePublishVersionListAPIView,
+    SiteRollbackAPIView,
 )
 
 urlpatterns = [
@@ -24,4 +26,14 @@ urlpatterns = [
     ),
     path("sites/<int:pk>/lock", SiteLockAPIView.as_view(), name="site-lock"),
     path("sites/<int:pk>/publish", SitePublishAPIView.as_view(), name="site-publish"),
+    path(
+        "sites/<int:pk>/publish-versions/",
+        SitePublishVersionListAPIView.as_view(),
+        name="site-publish-version-list",
+    ),
+    path(
+        "sites/<int:pk>/rollback/<int:version_number>/",
+        SiteRollbackAPIView.as_view(),
+        name="site-rollback",
+    ),
 ]
