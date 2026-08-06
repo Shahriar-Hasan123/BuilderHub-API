@@ -84,6 +84,7 @@ All notable changes to this project are documented in this file.
 - Reworked publish flow to record versions and materialize published assets from blobs
  - Added `PublishService.rollback()` initially to restore a prior version by re-materializing stored blobs without regenerating content
  - Updated rollback behavior: `PublishService.rollback()` and the rollback endpoint now restore editable source (HTML/CSS/JS) from blobs and then regenerate published JSON assets. `SiteRollbackAPIView` requires explicit confirmation (`?confirm=true`) before discarding unpublished edits.
+ - Fixed rollback restore so pages not present in the target version are disabled before republishing, preventing newer pages from reappearing.
 - Added `GET /api/v1/sites/{id}/publish-versions/` to list publish history
 - Added `GET /api/v1/sites/{id}/publish-versions/{version_number}` to retrieve a single publish version
 - Added `POST /api/v1/sites/{id}/rollback/{version_number}/` to roll back to a previous version

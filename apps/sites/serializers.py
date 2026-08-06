@@ -9,6 +9,7 @@ from .models import Site, SiteImage, SitePublishVersion
 class SiteSerializer(serializers.ModelSerializer):
     optimized_image_fields = {"favicon": 50, "logo": 50, "thumbnail": 50}
     name = serializers.CharField(required=True, allow_blank=False)
+    current_published_version = serializers.SerializerMethodField()
 
     class Meta:
         model = Site
@@ -59,6 +60,10 @@ class SiteSerializer(serializers.ModelSerializer):
             self.optimized_image_fields, validated_data
         )
         return super().update(instance, validated_data)
+
+    def get_current_published_version(self, obj):
+        v = getattr(obj, "current_published_version", None)
+        return v.version_number if v else None
 
 
 class SiteImageSerializer(serializers.ModelSerializer):

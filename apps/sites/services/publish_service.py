@@ -214,14 +214,27 @@ class PublishService:
             "footer.html", ContentFile(footer_content.encode("utf-8")), save=False
         )
 
-        # Restore page HTML files. Save each FileField, then persist the model
-        # so the FileField reference is stored in the DB.
-        for slug, content in page_contents.items():
-            pages_by_slug[slug].html.save(
-                f"{slug}.html", ContentFile(content.encode("utf-8")), save=False
-            )
+        # Restore page HTML files and preserve only the pages that existed
+        # in the requested version. Any newer pages are disabled so they are
+        # excluded from the republished output.
+        target_slugs = set(page_contents)
+        pages_to_save = []
+        for slug, page in pages_by_slug.items():
+            if slug in target_slugs:
+                page.html.save(
+                    f"{slug}.html",
+                    ContentFile(page_contents[slug].encode("utf-8")),
+                    save=False,
+                )
+                page.enable = True
+                pages_to_save.append((page, ["html", "enable"]))
+            else:
+                if page.enable:
+                    page.enable = False
+                    page.status = Page.Status.DRAFT
+                    pages_to_save.append((page, ["enable", "status"]))
 
         with transaction.atomic():
             site.save(update_fields=["header", "footer"])
-            for slug in page_contents:
-                pages_by_slug[slug].save(update_fields=["html"])
+            for page, update_fields in pages_to_save:
+                page.save(update_fields=update_fields)
