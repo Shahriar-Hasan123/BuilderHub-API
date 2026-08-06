@@ -11,7 +11,7 @@ class BloobStore:
         return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
     def _blob_path(self, content_hash: str) -> str:
-        return f"{self.BASE_DIR}/{content_hash[:2]}/{content_hash}.json"
+        return f"{self.BASE_DIR}/{content_hash[:2]}/{content_hash}"
 
     def put(self, content: str) -> str:
         """Stores content if not already present, returns its hash."""

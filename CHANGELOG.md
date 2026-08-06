@@ -82,7 +82,8 @@ All notable changes to this project are documented in this file.
 - Added `Site.current_published_version` to point to the active published version
 - Added `BlobStore` for content-addressable storage under `assets/blobs/`, so identical content is written only once
 - Reworked publish flow to record versions and materialize published assets from blobs
-- Added `PublishService.rollback()` to restore a prior version by re-materializing stored blobs without regenerating content
+ - Added `PublishService.rollback()` initially to restore a prior version by re-materializing stored blobs without regenerating content
+ - Updated rollback behavior: `PublishService.rollback()` and the rollback endpoint now restore editable source (HTML/CSS/JS) from blobs and then regenerate published JSON assets. `SiteRollbackAPIView` requires explicit confirmation (`?confirm=true`) before discarding unpublished edits.
 - Added `GET /api/v1/sites/{id}/publish-versions/` to list publish history
 - Added `GET /api/v1/sites/{id}/publish-versions/{version_number}` to retrieve a single publish version
 - Added `POST /api/v1/sites/{id}/rollback/{version_number}/` to roll back to a previous version

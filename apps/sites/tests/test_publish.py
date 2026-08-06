@@ -317,3 +317,51 @@ class SitePublishAPITests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_rollback_restores_editable_source_and_regenerates_assets(self):
+        # Initial source
+        self._add_header_footer()
+        page = self._add_page("Home", content="<main><h1>Original</h1></main>")
+
+        self._auth("publish_owner", "pass12345")
+        publish_resp = self.client.post(self.publish_url)
+        self.assertEqual(publish_resp.status_code, status.HTTP_200_OK)
+        version_number = publish_resp.data["version_number"]
+
+        # Modify source after publish
+        self.site.header = html_file("header.html", "<header>Changed</header>")
+        self.site.footer = html_file("footer.html", "<footer>Changed</footer>")
+        self.site.save()
+
+        page.html = html_file("Home.html", "<main><h1>Changed</h1></main>")
+        page.save()
+
+        # Ensure changed source is different
+        with default_storage.open(page.html.name) as f:
+            changed_page_content = f.read().decode("utf-8")
+        self.assertIn("Changed", changed_page_content)
+
+        # Rollback to previous version
+        rollback_url = reverse(
+            "site-rollback",
+            kwargs={"pk": self.site.id, "version_number": version_number},
+        )
+        resp = self.client.post(rollback_url)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+
+        # Reload objects and verify editable source restored
+        page.refresh_from_db()
+        self.site.refresh_from_db()
+
+        with default_storage.open(self.site.header.name) as f:
+            header_after = f.read().decode("utf-8")
+        with default_storage.open(page.html.name) as f:
+            page_after = f.read().decode("utf-8")
+
+        self.assertIn("Original", page_after)
+
+        # Ensure JSON assets were regenerated and exist
+        header_json = f"assets/sites/{slugify(self.site.name)}/header.json"
+        page_json = f"assets/sites/{slugify(self.site.name)}/pages/home.json"
+        self.assertTrue(default_storage.exists(header_json))
+        self.assertTrue(default_storage.exists(page_json))

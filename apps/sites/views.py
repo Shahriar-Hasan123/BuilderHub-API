@@ -407,10 +407,11 @@ class SitePublishVersionDetailAPIView(APIView):
 
 @site_schema_view(
     post=site_schema(
-        "Rollback site to a previous publish version",
-        (
-            "Re-materializes a previous publish version's assets as the site's "
-            "current published output, without regenerating any content."
+        summary="Rollback site to a previous publish version",
+        description=(
+            "Restores the site's editable source (header, footer, CSS, page HTML) "
+            "to a previous publish, then republishes from it. Any unpublished draft "
+            "edits are discarded — pass ?confirm=true to proceed when warned."
         ),
         responses=object_response(),
     )
@@ -425,11 +426,30 @@ class SiteRollbackAPIView(APIView, SiteLockMixin):
         site = self.get_site(pk)
         self.check_object_permissions(request, site)
         self.enforce_site_lock(request, site)
+
         version = get_object_or_404(
             SitePublishVersion, site=site, version_number=version_number
         )
+
+        service = PublishService()
+
+        # If there are unpublished changes, require explicit confirmation
+        # to discard them. Use ?confirm=true to proceed.
+        if service.has_unpublished_changes(site) and request.query_params.get("confirm") != "true":
+            return Response(
+                {
+                    "warning": "unpublished_changes_will_be_discarded",
+                    "detail": (
+                        "This site has unpublished edits not reflected in the last published version. Rolling back will overwrite them."
+                    ),
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
         try:
-            result = PublishService().rollback(site, version, request.user)
+            service.restore_source(site, version)
+            result = service.publish(site, user=request.user)
+
         except PublishValidationError as exc:
             raise DRFValidationError(str(exc))
 

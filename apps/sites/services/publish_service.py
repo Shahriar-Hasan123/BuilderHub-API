@@ -18,7 +18,7 @@ class PublishService:
     def __init__(self):
         self.minifier = HTMLMinifier()
         self.converter = HTMLToJSONConverter()
-        self.blob = BloobStore()
+        self.blobs = BloobStore()
 
     def _validate_readiness(self, site, pages):
         if not site.header or not site.footer:
@@ -38,29 +38,15 @@ class PublishService:
         with file_field.open("r") as f:
             return f.read()
 
-    def _build_contents(self, site, pages):
-
-        header_html = self.minifier.minify(self._read(site.header))
-        header_content = json.dumps(self.converter.convert_header(site, header_html))
-
-        footer_html = self.minifier.minify(self._read(site.footer))
-        footer_content = json.dumps(self.converter.convert_footer(site, footer_html))
-
-        page_contents = {}
-
-        for page in pages:
-            html = self._read(page.html)
-            minified_html = self.minifier.minify(html)
-
-            page_json = self.converter.convert_page(
-                site,
-                page,
-                minified_html,
-            )
-
-            page_contents[page.slug] = json.dumps(page_json)
-
-        return header_content, footer_content, page_contents
+    def _snapshot_source(self, site, pages):
+        header_content = self._read(site.header)
+        footer_content = self._read(site.footer)
+        header_hash = self.blobs.put(header_content)
+        footer_hash = self.blobs.put(footer_content)
+        page_hashes = {
+            page.slug: self.blobs.put(self._read(page.html)) for page in pages
+        }
+        return header_hash, footer_hash, page_hashes
 
     def _safe_write(self, path: str, content: str) -> str:
         """Writes new content under a temp name first, confirms it landed,
@@ -78,6 +64,38 @@ class PublishService:
 
         return path
 
+    def _generate_and_write_output(self, site, pages):
+
+        written_files = []
+
+        header_html = self.minifier.minify(self._read(site.header))
+        written_files.append(
+            self._safe_write(
+                f"assets/sites/{slugify(site.name)}/header.json",
+                json.dumps(self.converter.convert_header(site, header_html)),
+            )
+        )
+
+        footer_html = self.minifier.minify(self._read(site.footer))
+        written_files.append(
+            self._safe_write(
+                f"assets/sites/{slugify(site.name)}/footer.json",
+                json.dumps(self.converter.convert_footer(site, footer_html)),
+            )
+        )
+
+        for page in pages:
+            page_html = self.minifier.minify(self._read(page.html))
+            written_files.append(
+                self._safe_write(
+                    f"assets/sites/{slugify(site.name)}/pages/{page.slug}.json",
+                    json.dumps(self.converter.convert_page(site, page, page_html)),
+                )
+            )
+
+        self._cleanup_orphan_pages(site, [p.slug for p in pages])
+        return written_files
+
     def _cleanup_orphan_pages(self, site, expected_slugs):
         pages_dir = f"assets/sites/{slugify(site.name)}/pages/"
         expected_filenames = {f"{slug}.json" for slug in expected_slugs}
@@ -91,27 +109,12 @@ class PublishService:
             if filename not in expected_filenames and not filename.endswith(".tmp"):
                 default_storage.delete(f"{pages_dir}{filename}")
 
-    def _materialize(self, site, header_hash, footer_hash, page_hashes):
-
-        written_files = [
-            self._safe_write(
-                f"assets/sites/{slugify(site.name)}/header.json",
-                self.blob.read(header_hash),
-            ),
-            self._safe_write(
-                f"assets/sites/{slugify(site.name)}/footer.json",
-                self.blob.read(footer_hash),
-            ),
-        ]
-        for slug, page_hash in page_hashes.items():
-            written_files.append(
-                self._safe_write(
-                    f"assets/sites/{slugify(site.name)}/pages/{slug}.json",
-                    self.blob.read(page_hash),
-                )
-            )
-        self._cleanup_orphan_pages(site, page_hashes.keys())
-        return written_files
+    def _find_matching_version(self, site, header_hash, footer_hash, page_hashes):
+        return site.publish_versions.filter(
+            header_hash=header_hash,
+            footer_hash=footer_hash,
+            page_hashes=page_hashes,
+        ).first()
 
     def _next_version_number(self, site):
         latest = site.publish_versions.aggregate(Max("version_number"))[
@@ -125,20 +128,15 @@ class PublishService:
         )
         self._validate_readiness(site, pages)
 
-        header_content, footer_content, page_contents = self._build_contents(
-            site, pages
+        header_hash, footer_hash, page_hashes = self._snapshot_source(site, pages)
+        existing_version = self._find_matching_version(
+            site, header_hash, footer_hash, page_hashes
         )
 
-        header_hash = self.blob.put(header_content)
-        footer_hash = self.blob.put(footer_content)
-        page_hashes = {
-            slug: self.blob.put(content) for slug, content in page_contents.items()
-        }
-
-        written_files = self._materialize(site, header_hash, footer_hash, page_hashes)
+        written_files = self._generate_and_write_output(site, pages)
 
         with transaction.atomic():
-            version = SitePublishVersion.objects.create(
+            version = existing_version or SitePublishVersion.objects.create(
                 site=site,
                 version_number=self._next_version_number(site),
                 header_hash=header_hash,
@@ -165,32 +163,65 @@ class PublishService:
             "files": written_files,
         }
 
-    def rollback(self, site, version: SitePublishVersion, user=None):
+    def has_unpublished_changes(self, site):
+        """True if live editable source differs from what's currently published."""
+        current = site.current_published_version
+        if not current:
+            return True
+
+        pages = list(
+            site.pages.filter(enable=True, html__isnull=False).exclude(html="")
+        )
+        header_hash, footer_hash, page_hashes = self._snapshot_source(site, pages)
+
+        return (
+            header_hash != current.header_hash
+            or footer_hash != current.footer_hash
+            or page_hashes != current.page_hashes
+        )
+
+    def restore_source(self, site, version):
         if version.site_id != site.id:
             raise PublishValidationError(
                 "This publish version does not belong to this site."
             )
 
-        written_files = self._materialize(
-            site, version.header_hash, version.footer_hash, version.page_hashes
+        pages_by_slug = {p.slug: p for p in site.pages.all()}
+        missing_slugs = sorted(
+            slug for slug in version.page_hashes if slug not in pages_by_slug
         )
 
-        with transaction.atomic():
-            site.status = site.Status.PUBLISHED
-            site.current_published_version = version
-            site.updated_by = user
-            site.save(
-                update_fields=["status", "current_published_version", "updated_by"]
-            )
-            Page.objects.filter(site=site, slug__in=version.page_hashes.keys()).update(
-                status=Page.Status.PUBLISHED,
-                updated_by=user,
+        if missing_slugs:
+            raise PublishValidationError(
+                "Cannot restore version "
+                f"{version.version_number}: page(s) {', '.join(missing_slugs)} "
+                "existed at that version but have since been deleted."
             )
 
-        return {
-            "site_id": site.id,
-            "status": "rolled_back",
-            "version_number": version.version_number,
-            "assets_path": f"assets/sites/{slugify(site.name)}/",
-            "files": written_files,
+        header_content = self.blobs.read(version.header_hash)
+        footer_content = self.blobs.read(version.footer_hash)
+        page_contents = {
+            slug: self.blobs.read(page_hash)
+            for slug, page_hash in version.page_hashes.items()
         }
+
+        # Restore site header/footer without immediately saving the model so we
+        # can update both fields in a single atomic save.
+        site.header.save(
+            "header.html", ContentFile(header_content.encode("utf-8")), save=False
+        )
+        site.footer.save(
+            "footer.html", ContentFile(footer_content.encode("utf-8")), save=False
+        )
+
+        # Restore page HTML files. Save each FileField, then persist the model
+        # so the FileField reference is stored in the DB.
+        for slug, content in page_contents.items():
+            pages_by_slug[slug].html.save(
+                f"{slug}.html", ContentFile(content.encode("utf-8")), save=False
+            )
+
+        with transaction.atomic():
+            site.save(update_fields=["header", "footer"])
+            for slug in page_contents:
+                pages_by_slug[slug].save(update_fields=["html"])

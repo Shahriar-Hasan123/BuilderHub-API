@@ -7,9 +7,9 @@ from .views import (
     SiteListCreateAPIView,
     SiteLockAPIView,
     SitePublishAPIView,
+    SitePublishVersionDetailAPIView,
     SitePublishVersionListAPIView,
     SiteRollbackAPIView,
-    SitePublishVersionDetailAPIView
 )
 
 urlpatterns = [
