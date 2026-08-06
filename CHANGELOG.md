@@ -84,6 +84,7 @@ All notable changes to this project are documented in this file.
 - Reworked publish flow to record versions and materialize published assets from blobs
 - Added `PublishService.rollback()` to restore a prior version by re-materializing stored blobs without regenerating content
 - Added `GET /api/v1/sites/{id}/publish-versions/` to list publish history
+- Added `GET /api/v1/sites/{id}/publish-versions/{version_number}` to retrieve a single publish version
 - Added `POST /api/v1/sites/{id}/rollback/{version_number}/` to roll back to a previous version
 - Added `POST /api/v1/sites/{id}/publish/` (reuses existing permission + lock enforcement)
 - Exposed `header`/`footer` via the Site API (multipart upload), in addition to Django admin

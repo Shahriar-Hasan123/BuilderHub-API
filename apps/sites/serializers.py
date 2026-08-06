@@ -152,6 +152,7 @@ class SitePublishVersionSerializer(serializers.ModelSerializer):
         model = SitePublishVersion
         fields = [
             "id",
+            "site",
             "version_number",
             "header_hash",
             "footer_hash",

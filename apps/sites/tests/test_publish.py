@@ -11,7 +11,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.pages.models import Page
-from apps.sites.models import Site
+from apps.sites.models import Site, SitePublishVersion
 
 User = get_user_model()
 
@@ -282,3 +282,38 @@ class SitePublishAPITests(APITestCase):
                 "html",
             },
         )
+
+    def test_get_single_publish_version_returns_200(self):
+        version = SitePublishVersion.objects.create(
+            site=self.site,
+            version_number=1,
+            header_hash="header-hash",
+            footer_hash="footer-hash",
+            page_hashes={"home": "page-hash"},
+            published_by=self.owner,
+        )
+
+        self._auth("publish_owner", "pass12345")
+        response = self.client.get(
+            reverse(
+                "site-publish-version-detail",
+                kwargs={"pk": self.site.id, "version_number": version.version_number},
+            )
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["version_number"], 1)
+        self.assertEqual(response.data["header_hash"], "header-hash")
+        self.assertEqual(response.data["footer_hash"], "footer-hash")
+        self.assertEqual(response.data["page_hashes"], {"home": "page-hash"})
+
+    def test_get_single_publish_version_returns_404_for_unknown_version(self):
+        self._auth("publish_owner", "pass12345")
+        response = self.client.get(
+            reverse(
+                "site-publish-version-detail",
+                kwargs={"pk": self.site.id, "version_number": 99},
+            )
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)

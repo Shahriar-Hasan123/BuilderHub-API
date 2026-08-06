@@ -239,6 +239,7 @@ All API routes are versioned under `/api/v1` and use a no-trailing-slash convent
 | DELETE | `/api/v1/sites/{pk}` | Delete a site | Yes |
 | POST | `/api/v1/sites/{pk}/publish` | Publish a site by generating header/footer/page JSON assets | Yes |
 | GET | `/api/v1/sites/{pk}/publish-versions` | List all published versions for a site | Yes |
+| GET | `/api/v1/sites/{pk}/publish-versions/{version_number}` | Retrieve a single published version for a site | Yes |
 | POST | `/api/v1/sites/{pk}/rollback/{version_number}` | Roll back a site to a previous published version | Yes |
 
 ### Site Images
@@ -261,6 +262,7 @@ Publishing a site generates JSON files for the site header, footer, and enabled 
 
 - Endpoint: `POST /api/v1/sites/{pk}/publish`
 - Publish history: `GET /api/v1/sites/{pk}/publish-versions`
+- Single publish version detail: `GET /api/v1/sites/{pk}/publish-versions/{version_number}`
 - Rollback to a previous version: `POST /api/v1/sites/{pk}/rollback/{version_number}`
 
 The publish pipeline now stores content-addressable blobs under `assets/blobs/`, records each publish as a versioned snapshot, and can restore a prior version by re-materializing previously stored blobs without regenerating content.

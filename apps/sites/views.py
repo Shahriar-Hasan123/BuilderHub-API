@@ -382,6 +382,30 @@ class SitePublishVersionListAPIView(APIView):
 
 
 @site_schema_view(
+    get=site_schema(
+        "Get publish version",
+        "Retrieve a single publish version for a site.",
+        responses=SitePublishVersionSerializer,
+    )
+)
+class SitePublishVersionDetailAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated, HasUpdatePermission]
+
+    def get_site(self, pk):
+        site = get_object_or_404(Site, pk=pk)
+        self.check_object_permissions(self.request, site)
+        return site
+
+    def get(self, request, pk, version_number):
+        site = self.get_site(pk)
+        version = get_object_or_404(
+            SitePublishVersion, site=site, version_number=version_number
+        )
+        serializer = SitePublishVersionSerializer(version)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@site_schema_view(
     post=site_schema(
         "Rollback site to a previous publish version",
         (

@@ -9,6 +9,7 @@ from .views import (
     SitePublishAPIView,
     SitePublishVersionListAPIView,
     SiteRollbackAPIView,
+    SitePublishVersionDetailAPIView
 )
 
 urlpatterns = [
@@ -30,6 +31,11 @@ urlpatterns = [
         "sites/<int:pk>/publish-versions",
         SitePublishVersionListAPIView.as_view(),
         name="site-publish-version-list",
+    ),
+    path(
+        "sites/<int:pk>/publish-versions/<int:version_number>",
+        SitePublishVersionDetailAPIView.as_view(),
+        name="site-publish-version-detail",
     ),
     path(
         "sites/<int:pk>/rollback/<int:version_number>",
