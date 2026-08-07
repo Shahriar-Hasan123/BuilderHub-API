@@ -445,11 +445,9 @@ class SiteRollbackAPIView(APIView, SiteLockMixin):
                 },
                 status=status.HTTP_409_CONFLICT,
             )
-
+            
         try:
-            service.restore_source(site, version)
-            result = service.publish(site, user=request.user)
-
+            result = service.rollback(site, version, user=request.user)
         except PublishValidationError as exc:
             raise DRFValidationError(str(exc))
 

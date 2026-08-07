@@ -4,7 +4,7 @@ from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 
 
-class BloobStore:
+class BlobStore:
     BASE_DIR = "assets/blobs"
 
     def hash_content(self, content: str) -> str:

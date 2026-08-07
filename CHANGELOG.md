@@ -84,7 +84,10 @@ All notable changes to this project are documented in this file.
 - Reworked publish flow to record versions and materialize published assets from blobs
  - Added `PublishService.rollback()` initially to restore a prior version by re-materializing stored blobs without regenerating content
  - Updated rollback behavior: `PublishService.rollback()` and the rollback endpoint now restore editable source (HTML/CSS/JS) from blobs and then regenerate published JSON assets. `SiteRollbackAPIView` requires explicit confirmation (`?confirm=true`) before discarding unpublished edits.
- - Fixed rollback restore so pages not present in the target version are disabled before republishing, preventing newer pages from reappearing.
+ - Updated `HTMLToJSONConverter.convert_header()` so header JSON now includes site-level appearance metadata (`favicon`, `logo`, `thumbnail`, `global_css`) for rollback restore.
+- Fixed rollback restore so pages not present in the target version are disabled before republishing, preventing newer pages from reappearing.
+- Fixed rollback behavior to resurrect pages deleted after the target version and disable pages added after it instead of blocking the rollback entirely.
+- Added transactional rollback semantics so restore + republish occur inside one DB transaction, leaving the site unchanged on mid-operation failure.
 - Added `GET /api/v1/sites/{id}/publish-versions/` to list publish history
 - Added `GET /api/v1/sites/{id}/publish-versions/{version_number}` to retrieve a single publish version
 - Added `POST /api/v1/sites/{id}/rollback/{version_number}/` to roll back to a previous version
@@ -108,6 +111,7 @@ All notable changes to this project are documented in this file.
 - Site publish: fixed republish test and asset existence expectations to use slugified
   asset paths instead of `site.id`-based paths
 - Site publish: DB status update now wrapped in `transaction.atomic()`, applied only after all files are safely written
+- Site publish: publish version allocation now locks the `Site` row with `select_for_update()` to prevent duplicate version numbers from same-user double-clicks.
 - Site publish: empty header/footer file content is now rejected (400), not just missing files
 - HTMLMinifier: replaced regex-based whitespace collapsing with DOM-level text-node processing, so internal newlines/whitespace in text content are properly collapsed
 - HTMLMinifier: content inside `<script>`, `<style>`, `<pre>`, and `<textarea>` is left untouched
