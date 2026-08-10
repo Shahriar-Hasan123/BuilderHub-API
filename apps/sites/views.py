@@ -435,7 +435,10 @@ class SiteRollbackAPIView(APIView, SiteLockMixin):
 
         # If there are unpublished changes, require explicit confirmation
         # to discard them. Use ?confirm=true to proceed.
-        if service.has_unpublished_changes(site) and request.query_params.get("confirm") != "true":
+        if (
+            service.has_unpublished_changes(site)
+            and request.query_params.get("confirm") != "true"
+        ):
             return Response(
                 {
                     "warning": "unpublished_changes_will_be_discarded",
@@ -445,7 +448,7 @@ class SiteRollbackAPIView(APIView, SiteLockMixin):
                 },
                 status=status.HTTP_409_CONFLICT,
             )
-            
+
         try:
             result = service.rollback(site, version, user=request.user)
         except PublishValidationError as exc:

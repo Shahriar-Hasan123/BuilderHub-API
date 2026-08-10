@@ -119,6 +119,18 @@ class ImageOptimizerQuantizationTests(TestCase):
     def setUp(self):
         self.optimizer = ImageOptimizer()
 
+    def test_low_color_opaque_png_prefers_lossless_png_when_target_is_not_set(self):
+        image = Image.new("RGB", (20, 20), (255, 0, 0))
+        buffer = io.BytesIO()
+        image.save(buffer, format="PNG")
+        file = SimpleUploadedFile("icon.png", buffer.getvalue(), content_type="image/png")
+
+        result_bytes, name = self.optimizer.compress(file)
+        result_image = Image.open(io.BytesIO(result_bytes))
+
+        self.assertEqual(name, "icon.png")
+        self.assertEqual(result_image.format, "PNG")
+
     def test_low_color_image_gets_quantized(self):
         image = Image.new("RGBA", (300, 300), (255, 0, 0, 255))  # single color
         result_bytes, _ = self.optimizer._compress_transparent_png(

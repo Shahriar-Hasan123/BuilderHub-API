@@ -84,7 +84,6 @@ class PublishService:
             if filename not in expected_filenames and not filename.endswith(".tmp"):
                 default_storage.delete(f"{pages_dir}{filename}")
 
-
     def _next_version_number(self, site):
         latest = site.publish_versions.aggregate(Max("version_number"))[
             "version_number__max"
@@ -109,7 +108,9 @@ class PublishService:
         self._safe_write(f"assets/sites/{slugify(site.name)}/header.json", header_json)
         self._safe_write(f"assets/sites/{slugify(site.name)}/footer.json", footer_json)
         for slug, content in page_jsons.items():
-            self._safe_write(f"assets/sites/{slugify(site.name)}/pages/{slug}.json", content)
+            self._safe_write(
+                f"assets/sites/{slugify(site.name)}/pages/{slug}.json", content
+            )
         self._cleanup_orphan_pages(site, page_jsons.keys())
 
         written_files = ["header.json", "footer.json"] + [

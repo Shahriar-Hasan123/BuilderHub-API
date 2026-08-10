@@ -79,29 +79,23 @@ class ImageValidator:
     def _validate_dimensions(self, width, height):
         if self.min_width and width < self.min_width:
             raise ValidationError(
-                f"Image width must be at least {self.min_width}px "
-                f"(got {width:g}px)."
+                f"Image width must be at least {self.min_width}px (got {width:g}px)."
             )
         if self.min_height and height < self.min_height:
             raise ValidationError(
-                f"Image height must be at least {self.min_height}px "
-                f"(got {height:g}px)."
+                f"Image height must be at least {self.min_height}px (got {height:g}px)."
             )
         if self.max_width and width > self.max_width:
             raise ValidationError(
-                f"Image width must not exceed {self.max_width}px "
-                f"(got {width:g}px)."
+                f"Image width must not exceed {self.max_width}px (got {width:g}px)."
             )
         if self.max_height and height > self.max_height:
             raise ValidationError(
-                f"Image height must not exceed {self.max_height}px "
-                f"(got {height:g}px)."
+                f"Image height must not exceed {self.max_height}px (got {height:g}px)."
             )
 
     def _has_dimension_constraints(self):
-        return any(
-            (self.min_width, self.min_height, self.max_width, self.max_height)
-        )
+        return any((self.min_width, self.min_height, self.max_width, self.max_height))
 
     def _local_name(self, tag):
         return tag.rsplit("}", 1)[-1].lower()
@@ -118,9 +112,7 @@ class ImageValidator:
                 attr_value = value.strip().lower()
 
                 if attr_name.startswith("on"):
-                    raise ValidationError(
-                        "Inline SVG event handlers are not allowed."
-                    )
+                    raise ValidationError("Inline SVG event handlers are not allowed.")
                 if attr_value.startswith(("javascript:", "data:text/html")):
                     raise ValidationError("Unsafe SVG links are not allowed.")
 

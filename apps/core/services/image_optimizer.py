@@ -64,19 +64,24 @@ class ImageOptimizer:
         file.seek(0)
         try:
             Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
+
             with Image.open(file) as opened:
                 image_format = (opened.format or "").upper()
+
                 if image_format not in PIL_FORMAT_EXTENSIONS:
                     raise UnsupportedImageFormatError(
                         f"Unsupported image format: {image_format or 'unknown'}"
                     )
+
                 if opened.width * opened.height > MAX_IMAGE_PIXELS:
                     raise UnsupportedImageFormatError(
                         "Image is too large to process safely."
                     )
+
                 opened.load()
                 is_animated = getattr(opened, "is_animated", False)
                 image = ImageOps.exif_transpose(opened.copy())
+
         except Image.DecompressionBombError as exc:
             raise UnsupportedImageFormatError(
                 f"Image is too large to process safely: {exc}"
@@ -137,35 +142,23 @@ class ImageOptimizer:
         return result
 
     def _compress_png(self, image: Image.Image, filename: str, target_bytes):
-        if self._has_transparency(image):
-            return self._compress_transparent_png(image, filename, target_bytes)
+        has_alpha = self._has_transparency(image)
+        working = image.convert("RGBA" if has_alpha else "RGB")
 
-        new_name = filename.rsplit(".", 1)[0] + ".jpg"
-        return self._compress_with_ladder(
-            image.convert("RGB"),
-            "JPEG",
-            new_name,
-            target_bytes,
-            optimize=True,
-            progressive=True,
-            subsampling=2,
-        )
-
-    def _compress_transparent_png(
-        self, image: Image.Image, filename: str, target_bytes
-    ):
-        if max(image.size) > PNG_RESIZE_MAX_DIMENSION:
-            image = image.copy()
-            image.thumbnail(
+        if max(working.size) > PNG_RESIZE_MAX_DIMENSION:
+            working = working.copy()
+            working.thumbnail(
                 (PNG_RESIZE_MAX_DIMENSION, PNG_RESIZE_MAX_DIMENSION),
                 Image.Resampling.LANCZOS,
             )
 
-        rgba_image = image.convert("RGBA")
-        colors = rgba_image.getcolors(maxcolors=PNG_QUANTIZE_COLOR_LIMIT)
+        def hits_target(result):
+            return target_bytes is None or len(result[0]) <= target_bytes
 
+        best_result = None
+        colors = working.getcolors(maxcolors=PNG_QUANTIZE_COLOR_LIMIT)
         if colors is not None:
-            quantized = rgba_image.quantize(
+            quantized = working.quantize(
                 colors=PNG_QUANTIZE_COLOR_LIMIT,
                 method=Image.Quantize.FASTOCTREE,
                 dither=Image.Dither.NONE,
@@ -173,19 +166,47 @@ class ImageOptimizer:
             quantized_result = self._save(
                 quantized, "PNG", filename, optimize=True, compress_level=9
             )
-            if target_bytes is None or len(quantized_result[0]) <= target_bytes:
+            if hits_target(quantized_result):
                 return quantized_result
+            best_result = quantized_result
 
-        lossless = self._save(
-            rgba_image, "PNG", filename, optimize=True, compress_level=9
+        lossless_png = self._save(
+            working, "PNG", filename, optimize=True, compress_level=9
         )
-        if target_bytes is None or len(lossless[0]) <= target_bytes:
-            return lossless
+        if best_result is None or len(lossless_png[0]) < len(best_result[0]):
+            best_result = lossless_png
+        if hits_target(lossless_png):
+            return lossless_png
 
         webp_name = filename.rsplit(".", 1)[0] + ".webp"
-        return self._compress_with_ladder(
-            rgba_image, "WEBP", webp_name, target_bytes, method=6
-        )
+        lossless_webp = self._save(working, "WEBP", webp_name, lossless=True, method=6)
+        if len(lossless_webp[0]) < len(best_result[0]):
+            best_result = lossless_webp
+        if hits_target(lossless_webp):
+            return lossless_webp
+
+        # Past this point target_bytes is guaranteed not None -- both
+        # hits_target() calls above would already have returned otherwise.
+        if has_alpha:
+            lossy_result = self._compress_with_ladder(
+                working, "WEBP", webp_name, target_bytes, method=6
+            )
+        else:
+            jpeg_name = filename.rsplit(".", 1)[0] + ".jpg"
+            lossy_result = self._compress_with_ladder(
+                working,
+                "JPEG",
+                jpeg_name,
+                target_bytes,
+                optimize=True,
+                progressive=True,
+                subsampling=2,
+            )
+
+        if len(lossy_result[0]) < len(best_result[0]):
+            best_result = lossy_result
+
+        return best_result
 
     def _compress_other(
         self, image: Image.Image, image_format: str, filename: str, target_bytes
