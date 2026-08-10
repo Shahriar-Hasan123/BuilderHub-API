@@ -12,14 +12,15 @@ class ImageFieldProcessor:
         self.optimizer = ImageOptimizer()
 
     def process(self, fields, validated_data):
-        """fields: {field_name: max_kb} mapping, as defined per-serializer."""
         for field_name, max_kb in fields.items():
             uploaded_file = validated_data.get(field_name)
             if not uploaded_file:
                 continue
 
             try:
-                content_bytes, filename = self.optimizer.compress(uploaded_file)
+                content_bytes, filename = self.optimizer.compress(
+                    uploaded_file, target_kb=max_kb
+                )
             except Exception as exc:
                 raise serializers.ValidationError(
                     {field_name: f"Could not process image: {exc}"}
@@ -29,8 +30,8 @@ class ImageFieldProcessor:
                 raise serializers.ValidationError(
                     {
                         field_name: (
-                            f"Even after compression, this image exceeds {max_kb} KB "
-                            f"(got {len(content_bytes) / 1024:.1f} KB)."
+                            f"Even after adaptive compression, this image exceeds "
+                            f"{max_kb} KB (got {len(content_bytes) / 1024:.1f} KB)."
                         )
                     }
                 )

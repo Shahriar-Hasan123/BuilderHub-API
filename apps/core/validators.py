@@ -1,8 +1,12 @@
 import os
+import re
+from xml.etree.ElementTree import ParseError
 
 from django.core.exceptions import ValidationError
 from django.core.validators import FileExtensionValidator
 from django.utils.deconstruct import deconstructible
+from defusedxml import ElementTree as DefusedElementTree
+from defusedxml.common import DefusedXmlException
 from PIL import Image, UnidentifiedImageError
 
 
@@ -33,11 +37,24 @@ class ImageValidator:
     def _validate_svg(self, file):
         if "SVG" not in self.allowed_formats:
             raise ValidationError("SVG format is not allowed for this field.")
+
         file.seek(0)
-        header = file.read(1024).decode("utf-8", errors="ignore")
+        content = file.read()
         file.seek(0)
-        if "<svg" not in header.lower():
+
+        try:
+            root = DefusedElementTree.fromstring(content)
+        except (ParseError, DefusedXmlException):
             raise ValidationError("File is not a valid SVG.")
+
+        if self._local_name(root.tag) != "svg":
+            raise ValidationError("File is not a valid SVG.")
+
+        self._validate_svg_safety(root)
+
+        if self._has_dimension_constraints():
+            width, height = self._get_svg_dimensions(root)
+            self._validate_dimensions(width, height)
 
     def _validate_raster(self, file):
         file.seek(0)
@@ -57,22 +74,81 @@ class ImageValidator:
                 f"Allowed: {', '.join(self.allowed_formats)}."
             )
 
+        self._validate_dimensions(width, height)
+
+    def _validate_dimensions(self, width, height):
         if self.min_width and width < self.min_width:
             raise ValidationError(
-                f"Image width must be at least {self.min_width}px (got {width}px)."
+                f"Image width must be at least {self.min_width}px "
+                f"(got {width:g}px)."
             )
         if self.min_height and height < self.min_height:
             raise ValidationError(
-                f"Image height must be at least {self.min_height}px (got {height}px)."
+                f"Image height must be at least {self.min_height}px "
+                f"(got {height:g}px)."
             )
         if self.max_width and width > self.max_width:
             raise ValidationError(
-                f"Image width must not exceed {self.max_width}px (got {width}px)."
+                f"Image width must not exceed {self.max_width}px "
+                f"(got {width:g}px)."
             )
         if self.max_height and height > self.max_height:
             raise ValidationError(
-                f"Image height must not exceed {self.max_height}px (got {height}px)."
+                f"Image height must not exceed {self.max_height}px "
+                f"(got {height:g}px)."
             )
+
+    def _has_dimension_constraints(self):
+        return any(
+            (self.min_width, self.min_height, self.max_width, self.max_height)
+        )
+
+    def _local_name(self, tag):
+        return tag.rsplit("}", 1)[-1].lower()
+
+    def _validate_svg_safety(self, root):
+        blocked_tags = {"script", "foreignobject", "iframe", "object", "embed"}
+
+        for element in root.iter():
+            if self._local_name(element.tag) in blocked_tags:
+                raise ValidationError("Unsafe SVG elements are not allowed.")
+
+            for attr, value in element.attrib.items():
+                attr_name = self._local_name(attr)
+                attr_value = value.strip().lower()
+
+                if attr_name.startswith("on"):
+                    raise ValidationError(
+                        "Inline SVG event handlers are not allowed."
+                    )
+                if attr_value.startswith(("javascript:", "data:text/html")):
+                    raise ValidationError("Unsafe SVG links are not allowed.")
+
+    def _get_svg_dimensions(self, root):
+        width = self._parse_svg_length(root.attrib.get("width"))
+        height = self._parse_svg_length(root.attrib.get("height"))
+        if width and height:
+            return width, height
+
+        viewbox = root.attrib.get("viewBox") or root.attrib.get("viewbox")
+        if viewbox:
+            parts = re.split(r"[\s,]+", viewbox.strip())
+            if len(parts) == 4:
+                try:
+                    return float(parts[2]), float(parts[3])
+                except ValueError:
+                    pass
+
+        raise ValidationError("SVG must define valid width/height or viewBox.")
+
+    def _parse_svg_length(self, value):
+        if not value:
+            return None
+
+        match = re.match(r"^\s*(\d+(?:\.\d+)?)\s*(px)?\s*$", value)
+        if not match:
+            return None
+        return float(match.group(1))
 
     def __eq__(self, other):
         return (

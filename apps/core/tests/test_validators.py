@@ -53,6 +53,44 @@ class ImageValidatorTests(SimpleTestCase):
         validator = ImageValidator(allowed_formats=("SVG",))
         validator(file)
 
+    def test_validates_svg_dimensions_from_viewbox(self):
+        svg_content = (
+            b"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 80'></svg>"
+        )
+        file = SimpleUploadedFile("icon.svg", svg_content, content_type="image/svg+xml")
+        validator = ImageValidator(
+            min_width=100,
+            min_height=50,
+            max_width=200,
+            max_height=100,
+            allowed_formats=("SVG",),
+        )
+        validator(file)
+
+    def test_rejects_svg_without_dimensions_when_dimensions_required(self):
+        svg_content = b"<svg xmlns='http://www.w3.org/2000/svg'></svg>"
+        file = SimpleUploadedFile("icon.svg", svg_content, content_type="image/svg+xml")
+        validator = ImageValidator(min_width=10, allowed_formats=("SVG",))
+        with self.assertRaises(ValidationError):
+            validator(file)
+
+    def test_rejects_unsafe_svg_script(self):
+        svg_content = b"<svg xmlns='http://www.w3.org/2000/svg'><script /></svg>"
+        file = SimpleUploadedFile("icon.svg", svg_content, content_type="image/svg+xml")
+        validator = ImageValidator(allowed_formats=("SVG",))
+        with self.assertRaises(ValidationError):
+            validator(file)
+
+    def test_rejects_unsafe_svg_event_handler(self):
+        svg_content = (
+            b"<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' "
+            b"onclick='alert(1)'></svg>"
+        )
+        file = SimpleUploadedFile("icon.svg", svg_content, content_type="image/svg+xml")
+        validator = ImageValidator(allowed_formats=("SVG",))
+        with self.assertRaises(ValidationError):
+            validator(file)
+
     def test_rejects_invalid_svg(self):
         svg_content = b"<html></html>"
         file = SimpleUploadedFile("icon.svg", svg_content, content_type="image/svg+xml")
