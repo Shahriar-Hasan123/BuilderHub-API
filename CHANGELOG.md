@@ -26,6 +26,16 @@ All notable changes to this project are documented in this file.
 - Added `ImageOptimizer` service for upload-time image compression and format handling.
 - Added `ImageOptimizationMixin` to auto-compress configured DRF image fields during `create()` and `update()`.
 - Refactored image compression logic by replacing `ImageOptimizationMixin` with a dedicated `ImageFieldProcessor` service in `apps/core/utils/image_field_processor.py`; `SiteSerializer`, `SiteImageSerializer`, and `PageSerializer` now invoke it directly from their own `create()`/`update()` methods with no behavior change.
+- Hardened `ImageOptimizer` so optimized output is only saved when it is smaller than the original file.
+- Added adaptive image compression for JPEG, WEBP, and AVIF using quality steps plus bounded resize retries to better hit field-specific target sizes.
+- Fixed transparent PNG handling so color counts are measured on the actual image, quantized PNGs still respect target sizes, and transparent photo-like images fall back to lossy WEBP only when needed.
+- Fixed EXIF orientation handling so camera/phone photos are not saved rotated or mirrored after compression.
+- Added hard pixel-limit protection before loading raster images to reduce decompression-bomb risk.
+- Preserved animated GIF/PNG/WEBP uploads instead of collapsing them to a static first frame.
+- Switched raster optimization decisions from filename extension to Pillow's detected image format and normalized output filenames when uploads use the wrong extension.
+- Normalized unsupported source modes before WEBP/AVIF encoding to avoid encoder failures with palette or CMYK inputs.
+- Hardened SVG validation with safe XML parsing, unsafe SVG element/attribute blocking, and width/height or `viewBox` dimension checks.
+- Added `defusedxml` for safer SVG parsing and expanded image optimizer/SVG validator test coverage.
 
 ### Site Images API
 - Added nested site image endpoints:

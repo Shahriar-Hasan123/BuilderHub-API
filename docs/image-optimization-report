@@ -1,145 +1,309 @@
-# Image Optimization Report — 2026-08-03
+# Image Optimization Report — 2026-08-10
 
 ## Task Overview
-The objective was to improve the app's image upload pipeline by adding upload-time image optimization, ensuring some image formats bypass compression correctly, and documenting the implementation and errors encountered.
+This feature improves the image upload pipeline by validating images safely, optimizing raster images at upload time, preserving formats that should not be recompressed, and enforcing field-specific size limits before files are saved.
 
-This task covered:
+Main files:
+- `apps/core/validators.py`
 - `apps/core/services/image_optimizer.py`
 - `apps/core/utils/image_field_processor.py`
-- `apps/core/validators.py`
-- `apps/sites/serializers.py`
-- `apps/sites/models.py`
-- Documentation updates in `CHANGELOG.md` and `docs/worklog/2026-08-03.md`
+- `apps/core/tests/test_image_optimizer.py`
+- `apps/core/tests/test_validators.py`
+- `requirements.txt`
 
-## Implementation Summary
+## Architecture Summary
 
-### 1. Image optimizer pipeline
-The optimizer is implemented in `apps/core/services/image_optimizer.py` as `ImageOptimizer`.
+The feature is split into three responsibilities:
 
-Key responsibilities:
-- skip compression for intentionally excluded formats
-- identify transparent PNGs and optimize them differently from opaque PNGs
-- compress JPEG/WebP/AVIF
-- preserve `.svg` and `.gif` by returning their raw bytes instead of passing through Pillow
+1. `ImageValidator`
+   - Validates image type and dimensions before serializer save.
+   - Handles raster images with Pillow.
+   - Handles SVGs with safe XML parsing through `defusedxml`.
 
-The serializer pipeline uses `apps/core/utils/image_field_processor.py` to apply optimization during `create()` and `update()`.
+2. `ImageFieldProcessor`
+   - Runs during serializer `create()` and `update()`.
+   - Calls the optimizer for configured image fields.
+   - Re-checks the final optimized size against each field's max KB limit.
+   - Replaces the upload with a Django `ContentFile` before model save.
 
-### 2. Serializer integration
-`apps/sites/serializers.py` now includes:
-- `SiteSerializer` image fields optimized on save: `favicon`, `logo`, `thumbnail`
-- `SiteImageSerializer` image field optimized on save: `image`
+3. `ImageOptimizer`
+   - Compresses raster images.
+   - Preserves SVG, GIF, and animated images.
+   - Applies adaptive compression for lossy formats.
+   - Falls back to the original if optimization would make the file larger.
 
-The serializer process:
-1. `ImageFieldProcessor.process()` checks configured image fields.
-2. If an uploaded file exists, it calls `ImageOptimizer.compress()`.
-3. If compression succeeds, the optimized bytes replace the incoming file before model save.
-4. If the optimized file still exceeds the configured max size, validation fails.
+## High-Level Upload Flow
 
-### 3. SiteImage model addition
-Added `SiteImage` support in `apps/sites/models.py` to store regular site images with metadata and enable the same upload-time optimization flow.
-
-This provides a reusable image resource for sites while keeping optimization centralized in the `ImageFieldProcessor` service.
-
-## Workflow and Pipeline
-
-The image upload workflow is:
-
-1. User submits a multipart request with site or site-image data.
-2. DRF serializer validates the payload, including required fields and file-level validators.
-3. Validators such as `ImageValidator`, `FileExtensionValidator`, and `validate_file_size` run before compression.
-4. On serializer `create()`/`update()`, `ImageFieldProcessor.process()` is invoked.
-5. `ImageFieldProcessor` calls `ImageOptimizer.compress()` for each configured image field.
-6. After compression, `ImageFieldProcessor` checks the optimized size against the serializer's configured max KB.
-7. If the optimized image still exceeds the configured max, a serializer validation error is raised.
-8. Otherwise the optimized bytes are wrapped in `ContentFile` and assigned back to the serializer field.
-9. The model saves, and Django stores the file at the configured upload path.
-
-### Validation flowchart
-
+```text
+Client multipart upload
+        |
+        v
+DRF serializer validation
+        |
+        v
+ImageValidator / file validators
+        |
+        |-- SVG -> safe XML parse, safety checks, dimension checks
+        |
+        |-- Raster -> Pillow verify, format checks, dimension checks
+        |
+        v
+Serializer create() / update()
+        |
+        v
+ImageFieldProcessor.process(fields, validated_data)
+        |
+        v
+ImageOptimizer.compress(uploaded_file, target_kb=max_kb)
+        |
+        v
+Final size check against max_kb
+        |
+        |-- too large -> serializer.ValidationError
+        |
+        |-- valid -> ContentFile assigned back to validated_data
+        |
+        v
+Model save + Django storage
 ```
-Client -> DRF Serializer validation
-         -> field validators (ImageValidator / FileExtensionValidator / validate_file_size)
-         -> create()/update() hook
-         -> ImageFieldProcessor.process()
+
+## Optimizer Decision Flow
+
+```text
+ImageOptimizer.compress(file, target_kb)
+        |
+        v
+Check empty file and supported extension
+        |
+        v
+Read original bytes
+        |
+        |-- .svg -> return original bytes unchanged
+        |
+        v
+Open raster with Pillow
+        |
+        v
+Detect real image format from Pillow, not filename extension
+        |
+        v
+Reject unsupported decoded formats
+        |
+        v
+Check width * height <= MAX_IMAGE_PIXELS
+        |
+        v
+Load image and apply EXIF transpose
+        |
+        |-- GIF or animated image -> return original bytes unchanged
+        |
+        v
+Normalize output filename extension from detected format
+        |
+        |-- PNG
+        |     |
+        |     |-- transparent PNG
+        |     |       |
+        |     |       |-- resize very large transparent PNG to max 1500px side
+        |     |       |-- count colors on the actual image
+        |     |       |-- <=256 colors -> quantized PNG
+        |     |       |-- if still above target -> lossless PNG attempt
+        |     |       |-- if still above target -> lossy WEBP fallback
+        |     |
+        |     |-- opaque PNG -> JPEG adaptive compression
+        |
+        |-- JPEG / WEBP / AVIF -> adaptive lossy compression
+        |
+        v
+Compare candidate bytes with original bytes
+        |
+        |-- candidate smaller -> return candidate
+        |
+        |-- candidate same/larger -> return original
 ```
 
-### Compression flowchart
+## Adaptive Compression Flow
 
+Lossy formats use the same retry ladder:
+
+```text
+quality 75
+   |
+   |-- if <= target -> return
+   v
+quality 60
+   |
+   |-- if <= target -> return
+   v
+quality 45
+   |
+   |-- if <= target -> return
+   v
+quality 35
+   |
+   |-- if <= target -> return
+   v
+resize to 75% width/height
+   |
+   v
+repeat quality ladder up to 2 resize retries
 ```
-ImageFieldProcessor.process()
-  -> ImageOptimizer.compress(file)
-      -> ext = lower(file.name extension)
-      -> if ext in {'.svg', '.gif'}:
-           -> return raw bytes unchanged
-      -> else:
-           -> open file with Pillow -> load -> copy image
-           -> if ext == '.png':
-                -> if transparent:
-                     -> _optimize_transparent_png()
-                     -> save as PNG
-                -> else:
-                     -> convert RGB -> save as JPEG
-           -> elif ext in {'.jpg', '.jpeg'}:
-                -> save as JPEG quality=75, progressive
-           -> elif ext == '.webp':
-                -> save as WEBP quality=75
-           -> elif ext == '.avif':
-                -> save as AVIF quality=60
-           -> else:
-                -> raise UnsupportedImageFormatError
-      -> return bytes, filename
-  -> if len(bytes) > max_kb * 1024:
-       -> raise serializer.ValidationError
-  -> else:
-       -> wrap bytes in ContentFile and assign back to field
-       -> return validated_data
+
+If no target size is supplied, the optimizer tries normal compression once through the quality ladder and then relies on the "never bigger than original" safety net.
+
+## Key Behaviors
+
+### Never bigger than original
+Every compression path returns a candidate result first, then `_keep_smaller()` compares the candidate byte length with the original byte length. The optimized result is only used when it is smaller. This prevents the common issue where recompressing already-efficient images makes them bigger.
+
+### Actual format detection
+Raster routing uses Pillow's decoded format, not only the uploaded filename extension. If a PNG is uploaded as `wrong.jpg`, the optimizer still treats it as PNG and normalizes the output filename extension.
+
+### Transparent PNG handling
+Transparent PNGs are handled separately from opaque PNGs:
+- Low-color transparent graphics can be quantized as PNG.
+- Photo-like transparent PNGs stay lossless first.
+- If the target size cannot be reached losslessly, the optimizer falls back to lossy WEBP.
+- Quantized PNGs also check `target_bytes`; they no longer return early when still too large.
+
+### Opaque PNG handling
+Opaque PNGs can be converted to JPEG because transparency does not need to be preserved. This usually gives much smaller files for photo-like PNG uploads.
+
+### Animated image preservation
+GIF and animated raster images are returned unchanged. This avoids silently converting an animation into a static first frame.
+
+### EXIF orientation
+`ImageOps.exif_transpose()` is applied after load so phone/camera images keep their expected orientation after metadata is dropped during save.
+
+### Decompression-bomb protection
+The optimizer checks `opened.width * opened.height` before loading image pixels. Images above `MAX_IMAGE_PIXELS` are rejected safely before expensive memory work.
+
+### WEBP/AVIF mode safety
+Palette, CMYK, and other uncommon modes are normalized to RGB or RGBA before saving to lossy formats. This avoids encoder crashes.
+
+## SVG Validation Flow
+
+SVGs are not optimized by Pillow. They are validated and then passed through unchanged.
+
+```text
+ImageValidator(file)
+        |
+        |-- extension == .svg
+        |
+        v
+Read SVG bytes
+        |
+        v
+Parse with defusedxml
+        |
+        |-- invalid XML / unsafe XML -> ValidationError
+        |
+        v
+Confirm root tag is <svg>
+        |
+        v
+Reject unsafe SVG content
+        |
+        |-- blocked tags: script, foreignObject, iframe, object, embed
+        |-- blocked attributes: onclick/onload/etc.
+        |-- blocked values: javascript:, data:text/html
+        |
+        v
+If dimension rules exist:
+        |
+        |-- use width/height
+        |-- otherwise use viewBox
+        |-- enforce min/max width and height
 ```
-## Important behavior changes
 
-### `.svg` and `.gif` handling
-These file extensions now bypass Pillow compression entirely via `SKIP_COMPRESSION_EXTENSIONS`.
-That means:
-- SVG files are passed through raw and not decoded by Pillow.
-- GIFs are preserved rather than failing under Pillow open/convert semantics.
+This keeps SVG support while reducing the risk of malformed or scriptable SVG uploads.
 
-### Transparent PNG optimization
-Transparent PNGs are optimized by analyzing a 256x256 sample, then either:
-- returning the original image unchanged for photo-like images, or
-- quantizing transparent images to reduce size.
+## Field Integration
 
-## Errors encountered and fixes
+Configured serializer fields provide their target sizes:
 
+```text
+SiteSerializer:
+  favicon   -> 50 KB
+  logo      -> 50 KB
+  thumbnail -> 50 KB
 
-### 1. `Image.copy()` caused a Pillow assertion failure on some uploads
-**Issue**: calling `image.copy()` on a partially loaded Pillow image could trigger an assertion error during optimization.
-**Fix**: ensured the file is opened, loaded, and copied only after `image.load()`, preventing the deepcopy/assertion failure in the compression path.
+SiteImageSerializer:
+  image     -> 150 KB
 
-### 2. Unreachable RGB+MEDIANCUT path
-**Issue**: `_optimize_transparent_png()` contained a fallback branch for opaque images even though it only runs for transparent PNGs.
-**Fix**: simplified the function to only handle transparent quantization and removed unreachable code.
+PageSerializer:
+  hero_image -> 300 KB
+```
 
-### 3. Poor performance on photo-like transparent PNGs
-**Issue**: Pillow was doing an expensive full sample color scan for images with more than 256 distinct colors.
-**Fix**: capped `getcolors(maxcolors=...)` at `PNG_QUANTIZE_COLOR_LIMIT` so Pillow returns `None` quickly for photo-like images.
+The field processor passes each size as `target_kb` to `ImageOptimizer.compress()`. After optimization, the field processor checks the final byte size again. If the image still exceeds the target, the upload is rejected with a serializer validation error.
+
+## Issues Fixed
+
+- Added a "never bigger than original" safety net.
+- Fixed transparent PNG lossless/lossy misclassification by counting colors on the actual image instead of a thumbnail sample.
+- Added adaptive quality and resize retries for JPEG, WEBP, and AVIF.
+- Fixed EXIF orientation loss after compression.
+- Added hard decompression-bomb protection.
+- Preserved animated GIF/PNG/WEBP images instead of flattening them.
+- Fixed WEBP/AVIF mode-safety for palette and CMYK images.
+- Fixed quantized transparent PNG target-size handling.
+- Switched raster optimization from extension-based routing to detected-format routing.
+- Normalized output filenames when uploaded file extensions do not match real image formats.
+- Replaced weak SVG string validation with safer XML parsing and SVG safety checks.
+- Added SVG dimension validation through `width`/`height` or `viewBox`.
+
+## Tests Added or Updated
+
+Image optimizer tests cover:
+- empty uploads
+- unsupported extensions
+- SVG pass-through
+- GIF pass-through
+- opaque PNG to JPEG conversion
+- transparent PNG preservation
+- actual format detection when extension is wrong
+- hard pixel-limit rejection
+- transparency detection
+- transparent PNG quantization
+- transparent PNG fallback to WEBP when quantized output still exceeds the target
+- oversized transparent PNG resizing
+
+Validator tests cover:
+- valid raster images
+- invalid image bytes
+- unsupported raster formats
+- raster dimension limits
+- valid SVG uploads
+- SVG dimensions from `viewBox`
+- SVG rejection when dimensions are required but missing
+- unsafe SVG script rejection
+- unsafe SVG event-handler rejection
+- invalid SVG root rejection
 
 ## Verification
 
-### Files changed
-- `apps/core/services/image_optimizer.py`
-- `apps/core/utils/image_field_processor.py`
-- `apps/sites/serializers.py`
-- `apps/sites/models.py`
-- `CHANGELOG.md`
-- `docs/worklog/2026-08-03.md`
+Syntax verification completed:
 
-### Recommended verification commands
 ```bash
-cd /home/w3e101/Documents/Builder
-source venv/bin/activate
-python manage.py test apps.core.tests apps.sites.tests
+python3 -m py_compile apps/core/services/image_optimizer.py apps/core/tests/test_image_optimizer.py
+python3 -m py_compile apps/core/validators.py apps/core/tests/test_validators.py
 ```
 
-### Suggested demo scenario
-- upload a desktop site image with `device=desktop`
-- upload a GIF image and confirm it does not raise optimization errors
-- upload a transparent PNG and verify the optimizer handles it without converting wrongly
+Focused Django tests should be run in a fully installed environment:
+
+```bash
+python3 manage.py test apps.core.tests.test_image_optimizer
+python3 manage.py test apps.core.tests.test_validators
+```
+
+In the current local interpreter, the Django test runner could not start because `python-dotenv` was missing from the active environment, even though it is listed in `requirements.txt`.
+
+## Suggested Demo for Instructor
+
+1. Upload a small already-optimized PNG and show that the original is kept if JPEG would be larger.
+2. Upload a wrongly named raster file, such as a PNG named `.jpg`, and show the detected format is used.
+3. Upload a transparent PNG graphic and show it remains PNG when it fits the target.
+4. Upload a transparent PNG that cannot meet the target losslessly and show WEBP fallback.
+5. Upload a GIF or animated image and show it is preserved unchanged.
+6. Upload an SVG with `viewBox` and show dimension validation works.
+7. Upload an SVG with `<script>` or `onclick` and show it is rejected.
