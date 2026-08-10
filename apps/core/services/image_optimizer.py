@@ -143,11 +143,11 @@ class ImageOptimizer:
 
     def _compress_png(self, image: Image.Image, filename: str, target_bytes):
         has_alpha = self._has_transparency(image)
-        working = image.convert("RGBA" if has_alpha else "RGB")
+        source_image = image.convert("RGBA" if has_alpha else "RGB")
 
-        if max(working.size) > PNG_RESIZE_MAX_DIMENSION:
-            working = working.copy()
-            working.thumbnail(
+        if max(source_image.size) > PNG_RESIZE_MAX_DIMENSION:
+            source_image = source_image.copy()
+            source_image.thumbnail(
                 (PNG_RESIZE_MAX_DIMENSION, PNG_RESIZE_MAX_DIMENSION),
                 Image.Resampling.LANCZOS,
             )
@@ -156,9 +156,9 @@ class ImageOptimizer:
             return target_bytes is None or len(result[0]) <= target_bytes
 
         best_result = None
-        colors = working.getcolors(maxcolors=PNG_QUANTIZE_COLOR_LIMIT)
+        colors = source_image.getcolors(maxcolors=PNG_QUANTIZE_COLOR_LIMIT)
         if colors is not None:
-            quantized = working.quantize(
+            quantized = source_image.quantize(
                 colors=PNG_QUANTIZE_COLOR_LIMIT,
                 method=Image.Quantize.FASTOCTREE,
                 dither=Image.Dither.NONE,
@@ -171,36 +171,31 @@ class ImageOptimizer:
             best_result = quantized_result
 
         lossless_png = self._save(
-            working, "PNG", filename, optimize=True, compress_level=9
+            source_image, "PNG", filename, optimize=True, compress_level=9
         )
         if best_result is None or len(lossless_png[0]) < len(best_result[0]):
             best_result = lossless_png
-        if hits_target(lossless_png):
+        if hits_target(lossless_png) and has_alpha:
             return lossless_png
 
-        webp_name = filename.rsplit(".", 1)[0] + ".webp"
-        lossless_webp = self._save(working, "WEBP", webp_name, lossless=True, method=6)
-        if len(lossless_webp[0]) < len(best_result[0]):
-            best_result = lossless_webp
-        if hits_target(lossless_webp):
-            return lossless_webp
-
-        # Past this point target_bytes is guaranteed not None -- both
-        # hits_target() calls above would already have returned otherwise.
         if has_alpha:
+            webp_name = filename.rsplit(".", 1)[0] + ".webp"
+            lossless_webp = self._save(
+                source_image, "WEBP", webp_name, lossless=True, method=6
+            )
+            if len(lossless_webp[0]) < len(best_result[0]):
+                best_result = lossless_webp
+            if hits_target(lossless_webp):
+                return lossless_webp
+
             lossy_result = self._compress_with_ladder(
-                working, "WEBP", webp_name, target_bytes, method=6
+                source_image, "WEBP", webp_name, target_bytes, method=6
             )
         else:
             jpeg_name = filename.rsplit(".", 1)[0] + ".jpg"
             lossy_result = self._compress_with_ladder(
-                working,
-                "JPEG",
-                jpeg_name,
-                target_bytes,
-                optimize=True,
-                progressive=True,
-                subsampling=2,
+                source_image, "JPEG", jpeg_name, target_bytes,
+                optimize=True, progressive=True, subsampling=2,
             )
 
         if len(lossy_result[0]) < len(best_result[0]):

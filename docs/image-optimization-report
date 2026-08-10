@@ -102,15 +102,16 @@ Normalize output filename extension from detected format
         |
         |-- PNG
         |     |
-        |     |-- transparent PNG
-        |     |       |
-        |     |       |-- resize very large transparent PNG to max 1500px side
-        |     |       |-- count colors on the actual image
-        |     |       |-- <=256 colors -> quantized PNG
-        |     |       |-- if still above target -> lossless PNG attempt
-        |     |       |-- if still above target -> lossy WEBP fallback
+        |     |-- detect real transparency
+        |     |-- normalize transparent PNGs to RGBA, opaque PNGs to RGB
+        |     |-- resize very large PNGs to max 1500px side
+        |     |-- count colors on the normalized image
+        |     |-- <=256 colors -> quantized PNG
+        |     |-- if still above target -> lossless PNG attempt
         |     |
-        |     |-- opaque PNG -> JPEG adaptive compression
+        |     |-- transparent fallback -> lossless WEBP, then lossy WEBP
+        |     |
+        |     |-- opaque fallback -> adaptive JPEG compression
         |
         |-- JPEG / WEBP / AVIF -> adaptive lossy compression
         |
@@ -159,15 +160,13 @@ Every compression path returns a candidate result first, then `_keep_smaller()` 
 ### Actual format detection
 Raster routing uses Pillow's decoded format, not only the uploaded filename extension. If a PNG is uploaded as `wrong.jpg`, the optimizer still treats it as PNG and normalizes the output filename extension.
 
-### Transparent PNG handling
-Transparent PNGs are handled separately from opaque PNGs:
-- Low-color transparent graphics can be quantized as PNG.
-- Photo-like transparent PNGs stay lossless first.
-- If the target size cannot be reached losslessly, the optimizer falls back to lossy WEBP.
+### PNG handling
+PNG images use a shared lossless-first path before format-specific fallback:
+- Low-color PNGs, whether transparent or opaque, can be quantized as PNG.
+- PNGs are resized to a maximum 1500px side before lossless attempts.
 - Quantized PNGs also check `target_bytes`; they no longer return early when still too large.
-
-### Opaque PNG handling
-Opaque PNGs can be converted to JPEG because transparency does not need to be preserved. This usually gives much smaller files for photo-like PNG uploads.
+- Transparent PNGs preserve alpha and try lossless WEBP before falling back to lossy WEBP.
+- Opaque PNGs can fall back to adaptive JPEG compression because transparency does not need to be preserved. This usually gives much smaller files for photo-like PNG uploads.
 
 ### Animated image preservation
 GIF and animated raster images are returned unchanged. This avoids silently converting an animation into a static first frame.
@@ -240,13 +239,15 @@ The field processor passes each size as `target_kb` to `ImageOptimizer.compress(
 ## Issues Fixed
 
 - Added a "never bigger than original" safety net.
-- Fixed transparent PNG lossless/lossy misclassification by counting colors on the actual image instead of a thumbnail sample.
+- Fixed PNG lossless/lossy misclassification by counting colors on the normalized image instead of a thumbnail sample.
+- Gave opaque PNGs the same color-count-based lossless path as transparent PNGs, so screenshots, diagrams, and icons are not unconditionally converted to lossy JPEG.
+- Added lossless WEBP as the first transparent-PNG fallback before lossy WEBP.
 - Added adaptive quality and resize retries for JPEG, WEBP, and AVIF.
 - Fixed EXIF orientation loss after compression.
 - Added hard decompression-bomb protection.
 - Preserved animated GIF/PNG/WEBP images instead of flattening them.
 - Fixed WEBP/AVIF mode-safety for palette and CMYK images.
-- Fixed quantized transparent PNG target-size handling.
+- Fixed quantized PNG target-size handling.
 - Switched raster optimization from extension-based routing to detected-format routing.
 - Normalized output filenames when uploaded file extensions do not match real image formats.
 - Replaced weak SVG string validation with safer XML parsing and SVG safety checks.
@@ -264,9 +265,11 @@ Image optimizer tests cover:
 - actual format detection when extension is wrong
 - hard pixel-limit rejection
 - transparency detection
-- transparent PNG quantization
+- low-color opaque PNG preservation as PNG
+- low-color PNG quantization
+- high-color PNG quantization skip behavior
 - transparent PNG fallback to WEBP when quantized output still exceeds the target
-- oversized transparent PNG resizing
+- oversized PNG resizing
 
 Validator tests cover:
 - valid raster images
@@ -285,18 +288,18 @@ Validator tests cover:
 Syntax verification completed:
 
 ```bash
-python3 -m py_compile apps/core/services/image_optimizer.py apps/core/tests/test_image_optimizer.py
-python3 -m py_compile apps/core/validators.py apps/core/tests/test_validators.py
+./venv/bin/python -m py_compile apps/core/services/image_optimizer.py apps/core/tests/test_image_optimizer.py
+./venv/bin/python -m py_compile apps/core/validators.py apps/core/tests/test_validators.py
 ```
 
-Focused Django tests should be run in a fully installed environment:
+Focused Django tests completed in the project virtual environment:
 
 ```bash
-python3 manage.py test apps.core.tests.test_image_optimizer
-python3 manage.py test apps.core.tests.test_validators
+./venv/bin/python manage.py test apps.core.tests.test_image_optimizer
+./venv/bin/python manage.py test apps.core.tests.test_validators
 ```
 
-In the current local interpreter, the Django test runner could not start because `python-dotenv` was missing from the active environment, even though it is listed in `requirements.txt`.
+Both focused test suites passed.
 
 ## Suggested Demo for Instructor
 

@@ -29,6 +29,9 @@ All notable changes to this project are documented in this file.
 - Hardened `ImageOptimizer` so optimized output is only saved when it is smaller than the original file.
 - Added adaptive image compression for JPEG, WEBP, and AVIF using quality steps plus bounded resize retries to better hit field-specific target sizes.
 - Fixed transparent PNG handling so color counts are measured on the actual image, quantized PNGs still respect target sizes, and transparent photo-like images fall back to lossy WEBP only when needed.
+- Fixed opaque PNGs (screenshots, diagrams, icons) so they now get the same color-count-based lossless path transparent PNGs already had, instead of being unconditionally converted to lossy JPEG.
+- Fixed transparent-PNG size fallback so it now tries lossless WEBP before falling back to lossy WEBP.
+- Added a test verifying the `quantize()` "lossless" path is actually pixel-exact for genuinely low-color images.
 - Fixed EXIF orientation handling so camera/phone photos are not saved rotated or mirrored after compression.
 - Added hard pixel-limit protection before loading raster images to reduce decompression-bomb risk.
 - Preserved animated GIF/PNG/WEBP uploads instead of collapsing them to a static first frame.

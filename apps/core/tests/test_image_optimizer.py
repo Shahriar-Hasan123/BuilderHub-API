@@ -3,7 +3,7 @@ import os
 from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
+from django.test import SimpleTestCase
 from PIL import Image
 
 from apps.core.exceptions import UnsupportedImageFormatError
@@ -34,7 +34,7 @@ def _solid_gif_bytes(size=(10, 10), color=(255, 0, 0)):
     return buffer.getvalue()
 
 
-class ImageOptimizerCompressTests(TestCase):
+class ImageOptimizerCompressTests(SimpleTestCase):
     def setUp(self):
         self.optimizer = ImageOptimizer()
 
@@ -98,7 +98,7 @@ class ImageOptimizerCompressTests(TestCase):
                 self.optimizer.compress(file)
 
 
-class ImageOptimizerTransparencyDetectionTests(TestCase):
+class ImageOptimizerTransparencyDetectionTests(SimpleTestCase):
     def setUp(self):
         self.optimizer = ImageOptimizer()
 
@@ -115,7 +115,7 @@ class ImageOptimizerTransparencyDetectionTests(TestCase):
         self.assertFalse(self.optimizer._has_transparency(image))
 
 
-class ImageOptimizerQuantizationTests(TestCase):
+class ImageOptimizerQuantizationTests(SimpleTestCase):
     def setUp(self):
         self.optimizer = ImageOptimizer()
 
@@ -133,7 +133,7 @@ class ImageOptimizerQuantizationTests(TestCase):
 
     def test_low_color_image_gets_quantized(self):
         image = Image.new("RGBA", (300, 300), (255, 0, 0, 255))  # single color
-        result_bytes, _ = self.optimizer._compress_transparent_png(
+        result_bytes, _ = self.optimizer._compress_png(
             image, "logo.png", None
         )
         result = Image.open(io.BytesIO(result_bytes))
@@ -146,7 +146,7 @@ class ImageOptimizerQuantizationTests(TestCase):
             "_compress_with_ladder",
             return_value=(b"webp-bytes", "logo.webp"),
         ) as compress_with_ladder:
-            result_bytes, name = self.optimizer._compress_transparent_png(
+            result_bytes, name = self.optimizer._compress_png(
                 image, "logo.png", 1
             )
 
@@ -161,15 +161,15 @@ class ImageOptimizerQuantizationTests(TestCase):
         for x in range(300):
             for y in range(300):
                 pixels[x, y] = (x % 256, y % 256, (x + y) % 256, 255)
-        result_bytes, _ = self.optimizer._compress_transparent_png(
+        result_bytes, _ = self.optimizer._compress_png(
             image, "logo.png", None
         )
         result = Image.open(io.BytesIO(result_bytes))
-        self.assertEqual(result.mode, "RGBA")  # unchanged, not quantized
+        self.assertNotEqual(result.mode, "P")  # not quantized
 
     def test_oversized_image_gets_resized(self):
         image = Image.new("RGBA", (2000, 100), (0, 255, 0, 255))
-        result_bytes, _ = self.optimizer._compress_transparent_png(
+        result_bytes, _ = self.optimizer._compress_png(
             image, "logo.png", None
         )
         result = Image.open(io.BytesIO(result_bytes))
