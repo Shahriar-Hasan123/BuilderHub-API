@@ -9,7 +9,6 @@ from .models import Site, SiteImage, SitePublishVersion
 
 class SiteSerializer(serializers.ModelSerializer):
     optimized_image_fields = {"favicon": 50, "logo": 50, "thumbnail": 50}
-    name = serializers.CharField(required=True, allow_blank=False)
     current_published_version = serializers.SerializerMethodField()
 
     class Meta:
