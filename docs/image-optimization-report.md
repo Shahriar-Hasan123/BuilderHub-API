@@ -415,6 +415,137 @@ Commands run after the optimizer policy update:
 
 All three checks passed.
 
+## Image Optimization — Testing Instructions
+
+All image fields are uploaded via `multipart/form-data`, not raw JSON —
+Postman: Body → form-data, set the field's type to **File**.
+
+## 1. Site images — favicon / logo / thumbnail (target: 50 KB each)
+
+**Endpoint:** `PATCH /api/v1/sites/{site_id}/`
+
+**Input (Postman form-data):**
+| Key | Type | Value |
+|---|---|---|
+| favicon | File | (pick an image, e.g. a 2MB PNG icon) |
+
+Test separately for `logo` and `thumbnail` the same way (one field at a time,
+or all three together in one request).
+
+**Expected output (200 OK):**
+```json
+{
+  "id": 20,
+  "name": "w3-school",
+  "url": "https://example.com",
+  "favicon": "/media/sites/20/favicon_ab12cd34.png",
+  "logo": "/media/sites/20/logo_ef56gh78.png",
+  "thumbnail": "/media/sites/20/thumbnail_ij90kl12.jpg",
+  "status": "draft",
+  "user": 1,
+  "created_by": 1,
+  "updated_by": 1
+}
+```
+**What to verify:**
+- Response 200 (not 400) — means optimizer got the file under 50KB
+- Download the returned `favicon` URL and check its actual file size ≤ 50KB
+- Compare against the original upload size (should be meaningfully smaller, or unchanged if the original was already small — per the "never bigger than original" rule)
+
+**Failure case (400) — upload something that can't possibly reach 50KB even compressed** (e.g. a large, highly detailed photo as favicon):
+```json
+{
+  "favicon": [
+    "Even after adaptive compression, this image exceeds 50 KB (got 87.3 KB)."
+  ]
+}
+```
+
+---
+
+## 2. SiteImage — regular gallery image (target: 150 KB)
+
+**Endpoint:** `POST /api/v1/sites/{site_id}/images/`
+
+**Input (Postman form-data):**
+| Key | Type | Value |
+|---|---|---|
+| image | File | (pick a photo, e.g. a 3MB JPEG) |
+| alt_text | Text | "Team photo" |
+| page | Text | (optional, a page ID under this site) |
+
+**Expected output (201 Created):**
+```json
+{
+  "id": 7,
+  "site": 20,
+  "page": null,
+  "file_name": "image_mn34op56.jpg",
+  "image": "/media/sites/20/images/image_mn34op56.jpg",
+  "alt_text": "Team photo",
+  "file_size": "134.5 KB",
+  "width": 1920,
+  "height": 1080,
+  "created_by": 1,
+  "updated_by": 1
+}
+```
+**What to verify:**
+- `file_size` (KB) ≤ 150 KB
+- `width`/`height` reflect any resize that happened (should be ≤1500px on the longer side if resize was needed)
+
+---
+
+## 3. Page — hero_image (target: 300 KB)
+
+**Endpoint:** `PATCH /api/v1/sites/{site_id}/pages/{page_id}/`
+
+**Input (Postman form-data):**
+| Key | Type | Value |
+|---|---|---|
+| hero_image | File | (pick a large banner photo, e.g. 5MB) |
+
+**Expected output (200 OK):**
+```json
+{
+  "id": 3,
+  "site": {
+    "id": 20,
+    "name": "w3-school",
+    "status": "draft",
+    "url": "https://example.com"
+  },
+  "slug": "home-page",
+  "title": "Home",
+  "status": "draft",
+  "page_type": "page",
+  "hero_image": "/media/pages/3/hero_qr78st90.jpg",
+  "meta_description": "Welcome to our site",
+  "canonical_url": "",
+  "enable": true,
+  "created_by": 1,
+  "updated_by": 1
+}
+```
+**What to verify:**
+- Download `hero_image`, confirm ≤ 300KB
+- If original was a low-color/graphic-style banner, confirm it stayed `.png`/`.webp` (lossless) rather than becoming `.jpg` — proof the lossless-first path is working
+
+---
+
+## Test matrix (run each of these once per field)
+
+| Case | Image type | Expected result |
+|---|---|---|
+| Small, already tiny (e.g. 10KB icon) | any | Returned unchanged (original kept, not re-encoded larger) |
+| Large low-color PNG (screenshot/logo) | PNG | Stays PNG or becomes lossless WEBP — no visible quality loss |
+| Large high-color photo | JPEG/PNG | Becomes lossy JPEG/WEBP, quality adaptively reduced until under target |
+| Transparent PNG, low-color (icon with alpha) | PNG | Stays lossless PNG |
+| Transparent PNG, high-color (photo with alpha) | PNG | Lossless WEBP first, lossy WEBP fallback if still too big |
+| Animated GIF/WEBP | GIF/WEBP | Returned unchanged (not flattened to static) |
+| SVG | SVG | Passed through unchanged, only validated for safety |
+| Rotated phone photo (has EXIF orientation) | JPEG | Comes out right-side-up after compression |
+
 ## Suggested Demo for Instructor
 
 1. Upload a small already-optimized PNG and show that the original is kept if

@@ -68,6 +68,7 @@ class SiteSerializer(serializers.ModelSerializer):
 
 class SiteImageSerializer(serializers.ModelSerializer):
     optimized_image_fields = {"image": 150}
+    file_size = serializers.SerializerMethodField()
 
     class Meta:
         model = SiteImage
@@ -123,6 +124,11 @@ class SiteImageSerializer(serializers.ModelSerializer):
 
         return super().update(instance, validated_data)
 
+    def get_file_size(self, obj):
+        if obj.file_size is None:
+            return None
+        return f"{round(obj.file_size / 1024, 1)} KB"
+
     def extract_image_metadata(self, validated_data):
         image = validated_data.get("image")
 
@@ -133,7 +139,7 @@ class SiteImageSerializer(serializers.ModelSerializer):
         if not validated_data.get("file_name"):
             validated_data["file_name"] = image.name
 
-        # Always calculate file size
+        # Always calculate file size in bytes for storage and validation
         validated_data["file_size"] = image.size
 
         # Always calculate dimensions
