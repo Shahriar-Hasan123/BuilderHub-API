@@ -259,15 +259,28 @@ class ImageOptimizerQuantizationTests(SimpleTestCase):
         result = Image.open(io.BytesIO(result_bytes))
         self.assertLess(max(result.size), 1500)
 
-    def test_lossy_source_low_color_still_attempts_quantize(self):
+    def test_lossy_source_low_color_keeps_original_for_jpeg_when_lossy_is_not_allowed(self):
         image = Image.new("RGB", (300, 300), (255, 0, 0))
-        with patch.object(
-            self.optimizer, "_save", wraps=self.optimizer._save
-        ) as save_mock:
-            result_bytes, name = self.optimizer._compress_image(
+        result = self.optimizer._compress_image(
+            image=image,
+            image_format="JPEG",
+            base_name="logo",
+            target_bytes=None,
+            icc_profile=None,
+            allow_lossy=False,
+            allow_resize=False,
+            max_dimension=1500,
+        )
+
+        self.assertIsNone(result)
+
+    def test_avif_source_attempts_same_format_lossless_candidate(self):
+        image = Image.new("RGB", (100, 100), (255, 0, 0))
+        with patch.object(self.optimizer, "_save", wraps=self.optimizer._save) as save_mock:
+            self.optimizer._compress_image(
                 image=image,
-                image_format="JPEG",
-                base_name="logo",
+                image_format="AVIF",
+                base_name="photo",
                 target_bytes=None,
                 icc_profile=None,
                 allow_lossy=False,
@@ -276,11 +289,28 @@ class ImageOptimizerQuantizationTests(SimpleTestCase):
             )
 
         self.assertTrue(
-            any(call.args[1] == "PNG" for call in save_mock.call_args_list),
-            "Expected quantize or lossless PNG attempt for low-color lossy source",
+            any(call.args[1] == "AVIF" for call in save_mock.call_args_list),
+            "Expected AVIF lossless candidate to be attempted for AVIF source",
         )
-        result = Image.open(io.BytesIO(result_bytes))
-        self.assertEqual(result.format, "PNG")
+
+    def test_webp_source_attempts_same_format_lossless_candidate(self):
+        image = Image.new("RGB", (100, 100), (255, 0, 0))
+        with patch.object(self.optimizer, "_save", wraps=self.optimizer._save) as save_mock:
+            self.optimizer._compress_image(
+                image=image,
+                image_format="WEBP",
+                base_name="photo",
+                target_bytes=None,
+                icc_profile=None,
+                allow_lossy=False,
+                allow_resize=False,
+                max_dimension=1500,
+            )
+
+        self.assertTrue(
+            any(call.args[1] == "WEBP" for call in save_mock.call_args_list),
+            "Expected WEBP lossless candidate to be attempted for WEBP source",
+        )
 
     def test_lossy_source_high_color_skips_full_lossless(self):
         image = Image.new("RGB", (300, 300))

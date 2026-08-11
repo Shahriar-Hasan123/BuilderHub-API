@@ -117,6 +117,8 @@ Check empty file and supported extension
         v
 Read original bytes
         |
+        |-- original size already <= target -> return original bytes unchanged
+        |
         |-- .svg -> return original bytes unchanged
         |
         v
@@ -149,7 +151,9 @@ For non-lossy raster sources such as PNG, WEBP, or AVIF:
         |-- detect real transparency
         |-- normalize to RGBA when alpha exists, otherwise RGB
         |
-        |-- <=256 decoded colors -> palette PNG candidate
+        |-- <=256 decoded colors -> lossless palette PNG candidate when quantization is truly lossless
+        |
+        |-- same-format lossless candidate for WEBP/AVIF when available
         |
         |-- full lossless PNG candidate
         |
@@ -204,7 +208,7 @@ the quality ladder is skipped completely.
 `ImageOptimizer.compress()` is safe to reuse in contexts where image quality
 should not be degraded by default:
 
-- JPEG uploads are not recompressed by default.
+- JPEG uploads are not quantized and are not recompressed by default.
 - Image dimensions are not changed by default.
 - Lossy quality reduction is not used by default.
 - Original bytes are kept if optimization does not produce a smaller result.
@@ -222,6 +226,11 @@ The optimizer compares the candidate output against the original upload. The
 candidate is only used when it is smaller. This prevents recompression from
 making already-efficient files larger.
 
+### Target-Size Fast Path
+
+If the original upload already meets the requested `target_kb`, the optimizer
+returns the original bytes unchanged and skips heavy re-encoding.
+
 ### Actual Format Detection
 
 Raster routing uses Pillow's decoded format, not only the uploaded filename
@@ -229,14 +238,20 @@ extension. A PNG uploaded as `wrong.jpg` is still treated as PNG internally.
 
 ### Low-Color Palette Optimization
 
-For non-lossy raster sources such as PNG, WEBP, or AVIF, images with 256 or
-fewer decoded colors can be stored as palette PNG. This is intended for
-genuine low-color graphics such as icons, logos, and simple illustrations.
+For non-JPEG raster sources with 256 or fewer decoded colors, the optimizer
+attempts a truly lossless palette PNG candidate. This is intended for genuine
+low-color graphics such as icons, logos, and simple illustrations.
+
+### Same-Format Lossless Candidates
+
+For WEBP and AVIF sources, the optimizer now attempts same-format lossless
+output when practical before falling back to other lossless container formats.
 
 ### Lossless PNG and WebP Candidates
 
-For these raster sources, the optimizer tries full lossless PNG and lossless
-WebP before any lossy fallback is considered.
+For these raster sources, the optimizer tries same-format lossless output for
+WEBP/AVIF when available, then full lossless PNG and lossless WebP before any
+lossy fallback is considered.
 
 ### Animated Image Preservation
 
@@ -346,6 +361,8 @@ Then it rejects the upload if `len(content_bytes) > max_kb * 1024`.
 - Added EXIF orientation correction.
 - Added ICC profile pass-through where practical.
 - Added hard decompression-bomb protection.
+- Added a target-size fast path that returns the original upload unchanged when
+  the original byte size already satisfies the requested `target_kb`.
 - Switched raster optimization from extension-based routing to detected-format
   routing.
 - Replaced weak SVG string validation with safer XML parsing and SVG safety

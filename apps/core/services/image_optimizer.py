@@ -1,7 +1,7 @@
 import io
 import os
 
-from PIL import Image, ImageOps
+from PIL import Image, ImageChops, ImageOps
 
 from apps.core.exceptions import UnsupportedImageFormatError
 
@@ -160,25 +160,7 @@ class ImageOptimizer:
 
         best_result = None
 
-        colors = source_image.getcolors(maxcolors=PNG_QUANTIZE_COLOR_LIMIT)
-        if colors is not None:
-            quantized = source_image.quantize(
-                colors=PNG_QUANTIZE_COLOR_LIMIT,
-                method=Image.Quantize.FASTOCTREE,
-                dither=Image.Dither.NONE,
-            )
-            quantized_result = self._save(
-                quantized,
-                "PNG",
-                f"{base_name}.png",
-                optimize=True,
-                compress_level=9,
-            )
-            if hits_target(quantized_result):
-                return quantized_result
-            best_result = quantized_result
-
-        if image_format in ALREADY_LOSSY_FORMATS and colors is None:
+        if image_format in ALREADY_LOSSY_FORMATS:
             return self._maybe_lossy_fallback(
                 source_image=source_image,
                 base_name=base_name,
@@ -191,6 +173,75 @@ class ImageOptimizer:
                 icc_kwargs=icc_kwargs,
             )
 
+        colors = source_image.getcolors(maxcolors=PNG_QUANTIZE_COLOR_LIMIT)
+        
+        if image_format == "PNG" and colors is not None:
+            quantized = source_image.quantize(
+                colors=PNG_QUANTIZE_COLOR_LIMIT,
+                method=Image.Quantize.FASTOCTREE,
+                dither=Image.Dither.NONE,
+            )
+            
+            if self._is_lossless_quantize(source_image, quantized):
+                quantized_result = self._save(
+                    quantized,
+                    "PNG",
+                    f"{base_name}.png",
+                    optimize=True,
+                    compress_level=9,
+                )
+                if hits_target(quantized_result):
+                    return quantized_result
+                best_result = quantized_result
+
+        if image_format == "WEBP":
+            same_format_result = self._save(
+                source_image,
+                "WEBP",
+                f"{base_name}.webp",
+                lossless=True,
+                method=6,
+                **icc_kwargs,
+            )
+            if best_result is None or len(same_format_result[0]) < len(best_result[0]):
+                best_result = same_format_result
+            if target_bytes is not None and hits_target(same_format_result):
+                return same_format_result
+        elif image_format == "AVIF":
+            same_format_result = self._save(
+                source_image,
+                "AVIF",
+                f"{base_name}.avif",
+                lossless=True,
+                quality=100,
+                **icc_kwargs,
+            )
+            if best_result is None or len(same_format_result[0]) < len(best_result[0]):
+                best_result = same_format_result
+            if target_bytes is not None and hits_target(same_format_result):
+                return same_format_result
+
+        if image_format != "PNG":
+            colors = source_image.getcolors(maxcolors=PNG_QUANTIZE_COLOR_LIMIT)
+            if colors is not None:
+                quantized = source_image.quantize(
+                    colors=PNG_QUANTIZE_COLOR_LIMIT,
+                    method=Image.Quantize.FASTOCTREE,
+                    dither=Image.Dither.NONE,
+                )
+                if self._is_lossless_quantize(source_image, quantized):
+                    quantized_result = self._save(
+                        quantized,
+                        "PNG",
+                        f"{base_name}.png",
+                        optimize=True,
+                        compress_level=9,
+                    )
+                    if target_bytes is not None and hits_target(quantized_result):
+                        return quantized_result
+                    if best_result is None or len(quantized_result[0]) < len(best_result[0]):
+                        best_result = quantized_result
+
         lossless_png = self._save(
             source_image,
             "PNG",
@@ -199,9 +250,11 @@ class ImageOptimizer:
             compress_level=9,
             **icc_kwargs,
         )
+        
         if best_result is None or len(lossless_png[0]) < len(best_result[0]):
             best_result = lossless_png
-        if hits_target(lossless_png):
+            
+        if target_bytes is not None and hits_target(lossless_png):
             return lossless_png
 
         lossless_webp = self._save(
@@ -212,9 +265,11 @@ class ImageOptimizer:
             method=6,
             **icc_kwargs,
         )
+        
         if len(lossless_webp[0]) < len(best_result[0]):
             best_result = lossless_webp
-        if hits_target(lossless_webp):
+            
+        if target_bytes is not None and hits_target(lossless_webp):
             return lossless_webp
 
         return self._maybe_lossy_fallback(
@@ -271,6 +326,7 @@ class ImageOptimizer:
 
         if best_result is None or len(lossy_result[0]) < len(best_result[0]):
             return lossy_result
+        
         return best_result
 
     def _compress_with_ladder(
@@ -315,6 +371,13 @@ class ImageOptimizer:
         buffer = io.BytesIO()
         image.save(buffer, format=format, **kwargs)
         return buffer.getvalue(), filename
+
+    def _is_lossless_quantize(self, source_image: Image.Image, quantized: Image.Image) -> bool:
+        if source_image.mode != quantized.mode:
+            quantized = quantized.convert(source_image.mode)
+        if source_image.size != quantized.size:
+            quantized = quantized.resize(source_image.size)
+        return ImageChops.difference(source_image, quantized).getbbox() is None
 
     def _as_bytes(self, file) -> bytes:
         file.seek(0)

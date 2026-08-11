@@ -27,6 +27,8 @@ All notable changes to this project are documented in this file.
 - Added `ImageOptimizationMixin` to auto-compress configured DRF image fields during `create()` and `update()`.
 - Refactored image compression logic by replacing `ImageOptimizationMixin` with a dedicated `ImageFieldProcessor` service in `apps/core/utils/image_field_processor.py`; `SiteSerializer`, `SiteImageSerializer`, and `PageSerializer` now invoke it directly from their own `create()`/`update()` methods with no behavior change.
 - Hardened `ImageOptimizer` so optimized output is only saved when it is smaller than the original file.
+ - Skip heavy optimization when the original upload is already at-or-below the requested `target_kb`; `ImageOptimizer.compress` now returns the original bytes unchanged in that case to avoid unnecessary re-encoding and CPU cost.
+ - Apply quantization (color-reduction) to raster inputs for all formats except `JPEG` as a cheap lossless-first step. The optimizer now attempts a quantize→lossless→lossy pipeline (lossless-first, then lossy fallback) so low-color images are preserved losslessly whenever possible.
 - Added adaptive image compression for JPEG, WEBP, and AVIF using quality steps plus bounded resize retries to better hit field-specific target sizes.
 - Fixed transparent PNG handling so color counts are measured on the actual image, quantized PNGs still respect target sizes, and transparent photo-like images fall back to lossy WEBP only when needed.
 - Fixed opaque PNGs (screenshots, diagrams, icons) so they now get the same color-count-based lossless path transparent PNGs already had, instead of being unconditionally converted to lossy JPEG.
