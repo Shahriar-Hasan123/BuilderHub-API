@@ -10,6 +10,8 @@ PNG_QUANTIZE_COLOR_LIMIT = 256
 
 MAX_IMAGE_PIXELS = 40_000_000  # ~40 megapixels
 
+Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
+
 QUALITY_STEPS = [75, 60, 45, 35]  # descending retry ladder for lossy formats
 RESIZE_RETRY_FACTOR = 0.75  # last-resort downscale if quality alone can't hit target
 MAX_RESIZE_RETRIES = 2
@@ -63,8 +65,6 @@ class ImageOptimizer:
 
         file.seek(0)
         try:
-            Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
-
             with Image.open(file) as opened:
                 image_format = (opened.format or "").upper()
 
