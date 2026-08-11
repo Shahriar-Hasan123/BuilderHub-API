@@ -69,19 +69,33 @@ class ImageOptimizerCompressTests(SimpleTestCase):
         with self.assertRaises(ValueError):
             self.optimizer.compress(file)
 
-    def test_opaque_large_png_converts_to_jpeg(self):
+    def test_opaque_large_png_converts_to_jpeg_when_lossy_is_allowed_for_target(self):
         content = _random_png_bytes(mode="RGB")
         file = SimpleUploadedFile("photo.png", content, content_type="image/png")
-        result_bytes, name = self.optimizer.compress(file)
+        result_bytes, name = self.optimizer.compress(
+            file, target_kb=150, allow_lossy=True
+        )
         self.assertTrue(name.endswith(".jpg"))
         self.assertEqual(Image.open(io.BytesIO(result_bytes)).format, "JPEG")
 
-    def test_transparent_large_png_stays_png(self):
+    def test_transparent_large_png_does_not_convert_to_jpeg(self):
         content = _random_png_bytes(mode="RGBA")
         file = SimpleUploadedFile("logo.png", content, content_type="image/png")
         result_bytes, name = self.optimizer.compress(file)
-        self.assertTrue(name.endswith(".png"))
-        self.assertEqual(Image.open(io.BytesIO(result_bytes)).format, "PNG")
+        self.assertFalse(name.endswith(".jpg"))
+        self.assertIn(Image.open(io.BytesIO(result_bytes)).format, {"PNG", "WEBP"})
+
+    def test_jpeg_is_not_recompressed_by_default(self):
+        image = Image.new("RGB", (300, 300), (120, 80, 40))
+        buffer = io.BytesIO()
+        image.save(buffer, format="JPEG", quality=85)
+        content = buffer.getvalue()
+        file = SimpleUploadedFile("photo.jpg", content, content_type="image/jpeg")
+
+        result_bytes, name = self.optimizer.compress(file)
+
+        self.assertEqual(result_bytes, content)
+        self.assertEqual(name, "photo.jpg")
 
     def test_uses_detected_format_for_output_filename(self):
         content = _solid_png_bytes(size=(600, 600))
@@ -123,7 +137,9 @@ class ImageOptimizerQuantizationTests(SimpleTestCase):
         image = Image.new("RGB", (20, 20), (255, 0, 0))
         buffer = io.BytesIO()
         image.save(buffer, format="PNG")
-        file = SimpleUploadedFile("icon.png", buffer.getvalue(), content_type="image/png")
+        file = SimpleUploadedFile(
+            "icon.png", buffer.getvalue(), content_type="image/png"
+        )
 
         result_bytes, name = self.optimizer.compress(file)
         result_image = Image.open(io.BytesIO(result_bytes))
@@ -131,28 +147,66 @@ class ImageOptimizerQuantizationTests(SimpleTestCase):
         self.assertEqual(name, "icon.png")
         self.assertEqual(result_image.format, "PNG")
 
-    def test_low_color_image_gets_quantized(self):
+    def test_low_color_image_gets_palette_optimized(self):
         image = Image.new("RGBA", (300, 300), (255, 0, 0, 255))  # single color
-        result_bytes, _ = self.optimizer._compress_png(
-            image, "logo.png", None
+        result_bytes, _ = self.optimizer._compress_image(
+            image=image,
+            image_format="PNG",
+            base_name="logo",
+            target_bytes=None,
+            icc_profile=None,
+            allow_lossy=False,
+            allow_resize=False,
+            max_dimension=1500,
         )
         result = Image.open(io.BytesIO(result_bytes))
         self.assertEqual(result.mode, "P")
 
-    def test_low_color_image_falls_back_to_webp_when_quantized_exceeds_target(self):
+    def test_lossy_fallback_is_used_only_when_allowed(self):
         image = Image.new("RGBA", (300, 300), (255, 0, 0, 100))
         with patch.object(
             self.optimizer,
             "_compress_with_ladder",
             return_value=(b"webp-bytes", "logo.webp"),
         ) as compress_with_ladder:
-            result_bytes, name = self.optimizer._compress_png(
-                image, "logo.png", 1
+            result_bytes, name = self.optimizer._compress_image(
+                image=image,
+                image_format="PNG",
+                base_name="logo",
+                target_bytes=1,
+                icc_profile=None,
+                allow_lossy=True,
+                allow_resize=False,
+                max_dimension=1500,
             )
 
         self.assertEqual(result_bytes, b"webp-bytes")
         self.assertEqual(name, "logo.webp")
         compress_with_ladder.assert_called_once()
+
+    def test_lossy_webp_fallback_preserves_icc_profile_for_alpha_images(self):
+        image = Image.new("RGBA", (300, 300), (255, 0, 0, 100))
+        icc_profile = b"icc-profile-bytes"
+
+        with patch.object(
+            self.optimizer,
+            "_compress_with_ladder",
+            return_value=(b"webp-bytes", "logo.webp"),
+        ) as compress_with_ladder:
+            self.optimizer._compress_image(
+                image=image,
+                image_format="PNG",
+                base_name="logo",
+                target_bytes=1,
+                icc_profile=icc_profile,
+                allow_lossy=True,
+                allow_resize=False,
+                max_dimension=1500,
+            )
+
+        _, kwargs = compress_with_ladder.call_args
+        self.assertIn("icc_profile", kwargs)
+        self.assertEqual(kwargs["icc_profile"], icc_profile)
 
     def test_high_color_image_skips_quantization(self):
         # gradient -> thousands of unique colors
@@ -161,16 +215,101 @@ class ImageOptimizerQuantizationTests(SimpleTestCase):
         for x in range(300):
             for y in range(300):
                 pixels[x, y] = (x % 256, y % 256, (x + y) % 256, 255)
-        result_bytes, _ = self.optimizer._compress_png(
-            image, "logo.png", None
+        result_bytes, _ = self.optimizer._compress_image(
+            image=image,
+            image_format="PNG",
+            base_name="logo",
+            target_bytes=None,
+            icc_profile=None,
+            allow_lossy=False,
+            allow_resize=False,
+            max_dimension=1500,
         )
         result = Image.open(io.BytesIO(result_bytes))
         self.assertNotEqual(result.mode, "P")  # not quantized
 
-    def test_oversized_image_gets_resized(self):
+    def test_default_path_does_not_resize(self):
         image = Image.new("RGBA", (2000, 100), (0, 255, 0, 255))
-        result_bytes, _ = self.optimizer._compress_png(
-            image, "logo.png", None
+        result_bytes, _ = self.optimizer._compress_image(
+            image=image,
+            image_format="PNG",
+            base_name="logo",
+            target_bytes=None,
+            icc_profile=None,
+            allow_lossy=False,
+            allow_resize=False,
+            max_dimension=1500,
         )
         result = Image.open(io.BytesIO(result_bytes))
-        self.assertLessEqual(max(result.size), 1500)
+        self.assertEqual(result.size, (2000, 100))
+
+    def test_lossy_resize_is_opt_in(self):
+        image = Image.new("RGB", (2000, 1000), (0, 255, 0))
+        result_bytes, _ = self.optimizer._compress_with_ladder(
+            image,
+            "JPEG",
+            "photo.jpg",
+            target_bytes=1,
+            allow_resize=True,
+            max_dimension=1500,
+            optimize=True,
+            progressive=True,
+            subsampling=2,
+        )
+        result = Image.open(io.BytesIO(result_bytes))
+        self.assertLess(max(result.size), 1500)
+
+    def test_lossy_source_low_color_still_attempts_quantize(self):
+        image = Image.new("RGB", (300, 300), (255, 0, 0))
+        with patch.object(
+            self.optimizer, "_save", wraps=self.optimizer._save
+        ) as save_mock:
+            result_bytes, name = self.optimizer._compress_image(
+                image=image,
+                image_format="JPEG",
+                base_name="logo",
+                target_bytes=None,
+                icc_profile=None,
+                allow_lossy=False,
+                allow_resize=False,
+                max_dimension=1500,
+            )
+
+        self.assertTrue(
+            any(call.args[1] == "PNG" for call in save_mock.call_args_list),
+            "Expected quantize or lossless PNG attempt for low-color lossy source",
+        )
+        result = Image.open(io.BytesIO(result_bytes))
+        self.assertEqual(result.format, "PNG")
+
+    def test_lossy_source_high_color_skips_full_lossless(self):
+        image = Image.new("RGB", (300, 300))
+        pixels = image.load()
+        for x in range(300):
+            for y in range(300):
+                pixels[x, y] = (x % 256, y % 256, (x + y) % 256)
+
+        with patch.object(
+            self.optimizer,
+            "_compress_with_ladder",
+            return_value=(b"lossy-bytes", "photo.jpg"),
+        ):
+            with patch.object(
+                self.optimizer, "_save", wraps=self.optimizer._save
+            ) as save_mock:
+                result_bytes, name = self.optimizer._compress_image(
+                    image=image,
+                    image_format="JPEG",
+                    base_name="photo",
+                    target_bytes=1,
+                    icc_profile=None,
+                    allow_lossy=True,
+                    allow_resize=False,
+                    max_dimension=1500,
+                )
+
+        self.assertEqual(name, "photo.jpg")
+        self.assertFalse(
+            any(call.args[1] in {"PNG", "WEBP"} for call in save_mock.call_args_list),
+            "Expected high-color lossy source to skip full lossless PNG/WebP tiers",
+        )

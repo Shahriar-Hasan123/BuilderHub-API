@@ -19,12 +19,15 @@ class ImageFieldProcessor:
 
             try:
                 content_bytes, filename = self.optimizer.compress(
-                    uploaded_file, target_kb=max_kb
+                    uploaded_file,
+                    target_kb=max_kb,
+                    allow_lossy=True,
+                    allow_resize=True,
                 )
             except Exception as exc:
                 raise serializers.ValidationError(
                     {field_name: f"Could not process image: {exc}"}
-                )
+                ) from exc
 
             if len(content_bytes) > max_kb * 1024:
                 raise serializers.ValidationError(

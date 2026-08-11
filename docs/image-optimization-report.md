@@ -1,8 +1,11 @@
-```markdown
-# Image Optimization Report — 2026-08-10
+# Image Optimization Report — 2026-08-11
 
 ## Task Overview
-This feature improves the image upload pipeline by validating images safely, optimizing raster images at upload time, preserving formats that should not be recompressed, and enforcing field-specific size limits before files are saved.
+
+This feature improves the image upload pipeline by validating images safely,
+optimizing raster images at upload time, preserving formats that should not be
+recompressed by default, and enforcing field-specific size limits before files
+are saved.
 
 Main files:
 - `apps/core/validators.py`
@@ -21,41 +24,47 @@ The feature is split into three responsibilities:
    - Handles raster images with Pillow.
    - Handles SVGs with safe XML parsing through `defusedxml`.
 
-2. **`ImageFieldProcessor`**
+2. **`ImageOptimizer`**
+   - Performs best-effort optimization.
+   - Preserves SVG, GIF, and animated images.
+   - Keeps the original file if the optimized candidate is not smaller.
+   - Uses conservative defaults: no lossy compression and no resizing unless a
+     caller explicitly enables them.
+
+3. **`ImageFieldProcessor`**
    - Runs during serializer `create()` and `update()`.
    - Calls the optimizer for configured image fields.
-   - Re-checks the final optimized size against each field's max KB limit.
+   - Explicitly enables lossy compression and resizing because serializer image
+     fields have hard KB targets.
+   - Re-checks the final optimized size and rejects the upload if it still
+     exceeds the field limit.
    - Replaces the upload with a Django `ContentFile` before model save.
 
-3. **`ImageOptimizer`**
-   - Compresses raster images.
-   - Preserves SVG, GIF, and animated images.
-   - Applies adaptive compression for lossy formats.
-   - Falls back to the original if optimization would make the file larger.
+## Design Rationale
 
-## Why Lossless vs. Lossy — the Design Rationale
+Lossless and lossy compression solve different problems.
 
-Before describing the flow, it's worth stating the principle the whole optimizer is built around, since "lossless" and "lossy" are easy to treat as a binary choice when they're really a trade-off decided by image content.
+**Lossless optimization** removes redundant storage without intentionally
+discarding image information. It works very well for low-color graphics such as
+icons, logos, screenshots, diagrams, and flat illustrations.
 
-**Lossless compression** (PNG, lossless WEBP) works by removing *redundancy* — repeated pixels, flat color regions, predictable patterns — without discarding any actual image data. How much it can shrink a file depends entirely on how much redundancy the image contains:
+**Lossy compression** discards detail to hit much smaller file sizes. It is often
+necessary for photo-like images when product requirements demand strict targets
+such as 50 KB, 150 KB, or 300 KB.
 
-- **Low-color graphics** (icons, logos, screenshots, diagrams, flat-color illustrations) have a lot of redundancy. Lossless compression alone typically achieves large size reductions here, often close to what lossy compression would achieve — with zero quality loss.
-- **Photographs** (gradients, texture, noise, millions of distinct colors) have very little redundancy. Lossless compression on a real photo usually only reduces size by 20–50%. A 5MB camera photo might become 2.5–3.5MB losslessly — it will not reach 150KB, because that size reduction would require discarding real image information, not just redundant data. This is a hard limit rooted in information theory (Shannon entropy), not a limitation of any particular tool or setting.
+The current design makes this policy explicit:
 
-**This is why the optimizer cannot use lossless compression unconditionally.** The task's own size targets (50KB for icons, 150–300KB for regular/hero images) are only achievable for photo-like images through lossy compression. Applying lossless everywhere would satisfy "lossless" as a word but fail the size requirement for any real photograph — the two goals conflict for that image class.
+- `ImageOptimizer.compress()` defaults to conservative, non-resizing,
+  non-lossy optimization.
+- Destructive operations are opt-in through `allow_lossy=True` and
+  `allow_resize=True`.
+- The upload pipeline opts in because it must enforce strict field size limits.
+- The optimizer is best-effort; the caller is responsible for re-checking hard
+  size limits.
 
-**The resolution used in this implementation is *lossless-first, lossy-only-as-a-last-resort*:**
-
-1. Try quantized PNG (lossless, if the image genuinely has ≤256 colors).
-2. Try full lossless PNG.
-3. Try lossless WEBP (often smaller than PNG at zero quality loss).
-4. Only if none of the above meet the target size, fall back to lossy compression (JPEG for opaque images, lossy WEBP where alpha must be preserved), lowering quality and then resizing as needed to reach the target.
-
-This means:
-- Icons, logos, and other low-color graphics are compressed **losslessly** in the common case — no quality loss.
-- Photographs and other high-color images are compressed **losslessly first**, and only drop to lossy compression when the size target cannot otherwise be met — and even then, quality starts high (75) and only decreases as needed.
-
-This mirrors standard practice in production image pipelines (e.g. Squoosh, Cloudinary's auto-format selection): the lossy/lossless decision is driven by the image's actual color complexity, not by its file extension or a blanket policy.
+This avoids accidentally degrading images when the optimizer is reused outside
+the upload path, while still allowing the serializer workflow to meet product
+size limits when possible.
 
 ## High-Level Upload Flow
 
@@ -79,7 +88,12 @@ Serializer create() / update()
 ImageFieldProcessor.process(fields, validated_data)
         |
         v
-ImageOptimizer.compress(uploaded_file, target_kb=max_kb)
+ImageOptimizer.compress(
+    uploaded_file,
+    target_kb=max_kb,
+    allow_lossy=True,
+    allow_resize=True,
+)
         |
         v
 Final size check against max_kb
@@ -95,7 +109,7 @@ Model save + Django storage
 ## Optimizer Decision Flow
 
 ```text
-ImageOptimizer.compress(file, target_kb)
+ImageOptimizer.compress(file, target_kb=None, allow_lossy=False, allow_resize=False)
         |
         v
 Check empty file and supported extension
@@ -118,46 +132,44 @@ Reject unsupported decoded formats
 Check width * height <= MAX_IMAGE_PIXELS
         |
         v
-Load image and apply EXIF transpose
+Load image, capture ICC profile, apply EXIF transpose
         |
         |-- GIF or animated image -> return original bytes unchanged
         |
         v
-Normalize output filename extension from detected format
+If source is already lossy (JPEG):
         |
-        |-- PNG (shared path for opaque and transparent)
-        |     |
-        |     |-- detect real transparency
-        |     |-- normalize to RGBA (transparent) or RGB (opaque)
-        |     |-- resize very large PNGs to max 1500px side
-        |     |-- count colors on the normalized image
-        |     |
-        |     |-- <=256 colors -> quantized PNG (lossless)
-        |     |     |-- meets target -> return
-        |     |
-        |     |-- full lossless PNG
-        |     |     |-- meets target -> return
-        |     |
-        |     |-- lossless WEBP
-        |     |     |-- meets target -> return
-        |     |
-        |     |-- still above target -> lossy fallback
-        |           |-- has alpha -> adaptive lossy WEBP
-        |           |-- opaque    -> adaptive JPEG
+        |-- allow_lossy=False -> keep original
         |
-        |-- JPEG / WEBP / AVIF -> adaptive lossy compression
+        |-- allow_lossy=True  -> use adaptive JPEG/WebP fallback
         |
         v
-Compare best candidate bytes with original bytes
+For non-lossy raster sources such as PNG, WEBP, or AVIF:
+        |
+        |-- detect real transparency
+        |-- normalize to RGBA when alpha exists, otherwise RGB
+        |
+        |-- <=256 decoded colors -> palette PNG candidate
+        |
+        |-- full lossless PNG candidate
+        |
+        |-- lossless WebP candidate
+        |
+        |-- still above target and allow_lossy=True:
+        |       |-- has alpha -> adaptive lossy WebP
+        |       |-- opaque    -> adaptive JPEG
+        |
+        v
+Compare candidate bytes with original bytes
         |
         |-- candidate smaller -> return candidate
         |
-        |-- candidate same/larger -> return original
+        |-- candidate missing/same/larger -> return original
 ```
 
-## Adaptive Compression Flow
+## Adaptive Lossy Flow
 
-Lossy formats use the same retry ladder:
+Lossy compression only runs when `allow_lossy=True`.
 
 ```text
 quality 75
@@ -176,46 +188,84 @@ quality 35
    |
    |-- if <= target -> return
    v
-resize to 75% width/height
+if allow_resize=True and target still missed:
    |
-   v
-repeat quality ladder up to 2 resize retries
+   |-- downscale and retry quality ladder
+   |-- repeat up to MAX_RESIZE_RETRIES
 ```
 
-If no target size is supplied, the optimizer stops at the first successful lossless result instead of running the lossy ladder — no size pressure means no reason to accept quality loss.
+If `allow_resize=False`, dimensions are not changed. If `allow_lossy=False`,
+the quality ladder is skipped completely.
 
 ## Key Behaviors
 
-### Never bigger than original
-Every compression path produces a candidate, and the smallest candidate seen across all attempted tiers (quantized PNG, lossless PNG, lossless WEBP, lossy) is compared against the original byte length. The optimized result is only used when it is smaller. This prevents the common failure mode where recompressing an already-efficient image makes it larger.
+### Conservative Defaults
 
-### Actual format detection
-Raster routing uses Pillow's decoded format, not only the uploaded filename extension. If a PNG is uploaded as `wrong.jpg`, the optimizer still treats it as PNG and normalizes the output filename extension to match.
+`ImageOptimizer.compress()` is safe to reuse in contexts where image quality
+should not be degraded by default:
 
-### PNG handling
-PNG images use a single, shared lossless-first path regardless of transparency:
-- Low-color PNGs — transparent or opaque — are quantized losslessly first.
-- PNGs are resized to a maximum 1500px side before any lossless attempt.
-- Quantized PNGs are also checked against `target_bytes`; they no longer return early while still exceeding the target.
-- All PNGs try lossless WEBP before any lossy fallback.
-- Opaque PNGs fall back to adaptive JPEG when lossless options can't meet the target, since transparency doesn't need to be preserved — this is usually far smaller than lossy WEBP for photo-like PNG uploads.
-- Transparent PNGs fall back to adaptive lossy WEBP (the only lossy format here that preserves alpha).
+- JPEG uploads are not recompressed by default.
+- Image dimensions are not changed by default.
+- Lossy quality reduction is not used by default.
+- Original bytes are kept if optimization does not produce a smaller result.
 
-### Animated image preservation
-GIF and animated raster images (including animated PNG/WEBP) are returned unchanged. This avoids silently collapsing an animation into a static first frame.
+### Explicit Upload Policy
 
-### EXIF orientation
-`ImageOps.exif_transpose()` is applied after load so phone/camera images keep their expected orientation after EXIF metadata is dropped during save.
+`ImageFieldProcessor` passes `allow_lossy=True` and `allow_resize=True` because
+site images, content images, and hero images have strict KB limits. After
+optimization, it checks the final byte size again. If the result still exceeds
+the configured limit, the serializer rejects the upload.
 
-### Decompression-bomb protection
-The optimizer checks `opened.width * opened.height` against `MAX_IMAGE_PIXELS` before loading pixel data, rejecting oversized images safely before expensive memory work.
+### Never Bigger Than Original
 
-### WEBP/AVIF mode safety
-Palette, CMYK, and other uncommon color modes are normalized to RGB or RGBA before saving to lossy formats, avoiding encoder crashes.
+The optimizer compares the candidate output against the original upload. The
+candidate is only used when it is smaller. This prevents recompression from
+making already-efficient files larger.
+
+### Actual Format Detection
+
+Raster routing uses Pillow's decoded format, not only the uploaded filename
+extension. A PNG uploaded as `wrong.jpg` is still treated as PNG internally.
+
+### Low-Color Palette Optimization
+
+For non-lossy raster sources such as PNG, WEBP, or AVIF, images with 256 or
+fewer decoded colors can be stored as palette PNG. This is intended for
+genuine low-color graphics such as icons, logos, and simple illustrations.
+
+### Lossless PNG and WebP Candidates
+
+For these raster sources, the optimizer tries full lossless PNG and lossless
+WebP before any lossy fallback is considered.
+
+### Animated Image Preservation
+
+GIF and animated raster images, including animated PNG/WebP, are returned
+unchanged. This avoids silently collapsing animation to a static frame.
+
+### EXIF Orientation
+
+`ImageOps.exif_transpose()` is applied after load so phone/camera images keep
+their expected orientation after optimization.
+
+### ICC Profile Handling
+
+The optimizer captures the source ICC profile and passes it to supported output
+save paths where practical, reducing the risk of visible color shifts.
+
+### Decompression-Bomb Protection
+
+The optimizer checks `opened.width * opened.height` against `MAX_IMAGE_PIXELS`
+before processing pixel data and raises `UnsupportedImageFormatError` for
+oversized images.
+
+### SVG Validation Contract
+
+SVG files are passed through unchanged by the optimizer based on extension. SVG
+safety is handled upstream by `ImageValidator`, which parses with `defusedxml`
+and rejects unsafe tags, event handlers, and unsafe link values.
 
 ## SVG Validation Flow
-
-SVGs are not raster-optimized. They are validated and then passed through unchanged, since SVG is already a compact, lossless, resolution-independent format — recompressing it isn't meaningful the way it is for raster images.
 
 ```text
 ImageValidator(file)
@@ -248,63 +298,83 @@ If dimension rules exist:
         |-- enforce min/max width and height
 ```
 
-This keeps SVG support while reducing the risk of malformed or scriptable SVG uploads.
-
 ## Field Integration
 
 Configured serializer fields provide their target sizes:
 
 ```text
 SiteSerializer:
-  favicon   -> 50 KB
-  logo      -> 50 KB
-  thumbnail -> 50 KB
+  favicon    -> 50 KB
+  logo       -> 50 KB
+  thumbnail  -> 50 KB
 
 SiteImageSerializer:
-  image     -> 150 KB
+  image      -> 150 KB
 
 PageSerializer:
   hero_image -> 300 KB
 ```
 
-The field processor passes each size as `target_kb` to `ImageOptimizer.compress()`. After optimization, the field processor checks the final byte size again. If the image still exceeds the target, the upload is rejected with a serializer validation error.
+The field processor calls:
+
+```python
+ImageOptimizer().compress(
+    uploaded_file,
+    target_kb=max_kb,
+    allow_lossy=True,
+    allow_resize=True,
+)
+```
+
+Then it rejects the upload if `len(content_bytes) > max_kb * 1024`.
 
 ## Issues Fixed
 
 - Added a "never bigger than original" safety net.
-- Fixed PNG lossless/lossy misclassification by counting colors on the normalized image instead of a downsized thumbnail sample.
-- Gave opaque PNGs the same color-count-based lossless path as transparent PNGs, so screenshots, diagrams, and icons are not unconditionally converted to lossy JPEG.
-- Added lossless WEBP as an intermediate fallback before lossy WEBP/JPEG.
-- Added adaptive quality and resize retries for JPEG, WEBP, and AVIF.
-- Fixed EXIF orientation loss after compression.
+- Kept the original file when the optimized candidate is not smaller.
+- Made lossy compression explicit through `allow_lossy`.
+- Made resizing explicit through `allow_resize`.
+- Changed optimizer defaults so lossless-first optimization is the default path,
+  and only explicit lossy fallback is used when `allow_lossy=True`.
+- Changed optimizer defaults so JPEG uploads are not recompressed by default,
+  while AVIF is treated like other raster formats because it can be lossless.
+- Removed default PNG resizing before lossless attempts.
+- Added a best-effort contract: `compress()` can optimize toward a target, but
+  callers must enforce hard limits.
+- Preserved animated GIF/PNG/WEBP images instead of flattening them to a static
+  frame.
+- Added EXIF orientation correction.
+- Added ICC profile pass-through where practical.
 - Added hard decompression-bomb protection.
-- Preserved animated GIF/PNG/WEBP images instead of flattening them to a static frame.
-- Fixed WEBP/AVIF mode safety for palette and CMYK images.
-- Fixed quantized PNG target-size handling (previously returned early without checking the target).
-- Switched raster optimization from extension-based routing to detected-format routing.
-- Normalized output filenames when uploaded file extensions do not match real image formats.
-- Replaced weak SVG string validation with safer XML parsing and SVG safety checks.
+- Switched raster optimization from extension-based routing to detected-format
+  routing.
+- Replaced weak SVG string validation with safer XML parsing and SVG safety
+  checks in `ImageValidator`.
 - Added SVG dimension validation through `width`/`height` or `viewBox`.
 
 ## Tests Added or Updated
 
 Image optimizer tests cover:
+
 - empty uploads
 - unsupported extensions
 - SVG pass-through
 - GIF pass-through
-- opaque PNG to JPEG conversion
-- transparent PNG preservation
+- opaque PNG to JPEG conversion only when lossy is explicitly allowed
+- transparent PNG not being converted to JPEG
+- JPEG not being recompressed by default
 - actual format detection when extension is wrong
 - hard pixel-limit rejection
 - transparency detection
 - low-color opaque PNG preservation as PNG
-- low-color PNG quantization
-- high-color PNG quantization skip behavior
-- transparent PNG fallback to WEBP when quantized output still exceeds the target
-- oversized PNG resizing
+- low-color palette optimization
+- high-color quantization skip behavior
+- lossy fallback only when allowed
+- default path does not resize
+- lossy resize is opt-in
 
 Validator tests cover:
+
 - valid raster images
 - invalid image bytes
 - unsupported raster formats
@@ -318,31 +388,27 @@ Validator tests cover:
 
 ## Verification
 
-Syntax verification completed:
-
-```bash
-./venv/bin/python -m py_compile apps/core/services/image_optimizer.py apps/core/tests/test_image_optimizer.py
-./venv/bin/python -m py_compile apps/core/validators.py apps/core/tests/test_validators.py
-```
-
-Focused Django tests completed in the project virtual environment:
+Commands run after the optimizer policy update:
 
 ```bash
 ./venv/bin/python manage.py test apps.core.tests.test_image_optimizer
-./venv/bin/python manage.py test apps.core.tests.test_validators
+./venv/bin/ruff check apps/core/services/image_optimizer.py apps/core/utils/image_field_processor.py apps/core/tests/test_image_optimizer.py
+./venv/bin/python -m py_compile apps/core/services/image_optimizer.py apps/core/utils/image_field_processor.py apps/core/tests/test_image_optimizer.py
 ```
 
-Both focused test suites passed.
+All three checks passed.
 
 ## Suggested Demo for Instructor
 
-1. Upload a small already-optimized PNG and show that the original is kept if re-encoding would make it larger.
-2. Upload a wrongly named raster file, such as a PNG named `.jpg`, and show the detected format is used instead of the extension.
-3. Upload a low-color transparent PNG graphic and show it stays losslessly compressed PNG when it fits the target.
-4. Upload a low-color opaque PNG (e.g. a screenshot) and show it also stays lossless PNG rather than being converted to JPEG.
-5. Upload a high-color transparent PNG that cannot meet the target losslessly and show the lossless-WEBP-then-lossy-WEBP fallback.
+1. Upload a small already-optimized PNG and show that the original is kept if
+   re-encoding would make it larger.
+2. Upload a JPEG with no explicit lossy option and show that it is not
+   recompressed by default.
+3. Upload a wrongly named raster file, such as a PNG named `.jpg`, and show the
+   detected format is used internally.
+4. Upload a low-color graphic and show the palette/lossless PNG path.
+5. Upload a photo-like PNG through the serializer upload path and show that
+   lossy compression is explicitly enabled there to meet the KB target.
 6. Upload a GIF or animated image and show it is preserved unchanged.
 7. Upload an SVG with `viewBox` and show dimension validation works.
 8. Upload an SVG with `<script>` or `onclick` and show it is rejected.
-9. **Explain the lossless-first design**: show a favicon/icon staying lossless, and a large photo needing the lossy fallback to meet its 150–300KB target — demonstrating the size-vs-fidelity trade-off is deliberate and content-driven, not accidental.
-```

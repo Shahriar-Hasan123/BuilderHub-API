@@ -8,8 +8,7 @@ from django.utils.text import slugify
 
 from apps.core.exceptions import PublishValidationError
 from apps.pages.models import Page
-from apps.sites.models import Site
-from apps.sites.models import SitePublishVersion
+from apps.sites.models import Site, SitePublishVersion
 from apps.sites.services.blob_store import BlobStore
 from apps.sites.services.html_minifier import HTMLMinifier
 from apps.sites.services.html_to_json import HTMLToJSONConverter

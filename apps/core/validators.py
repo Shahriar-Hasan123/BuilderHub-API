@@ -2,11 +2,11 @@ import os
 import re
 from xml.etree.ElementTree import ParseError
 
+from defusedxml import ElementTree as DefusedElementTree
+from defusedxml.common import DefusedXmlException
 from django.core.exceptions import ValidationError
 from django.core.validators import FileExtensionValidator
 from django.utils.deconstruct import deconstructible
-from defusedxml import ElementTree as DefusedElementTree
-from defusedxml.common import DefusedXmlException
 from PIL import Image, UnidentifiedImageError
 
 
