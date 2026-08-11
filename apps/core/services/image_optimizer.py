@@ -75,10 +75,13 @@ class ImageOptimizer:
 
         original_bytes = self._as_bytes(file)
 
-        if ext == ".svg":
+        target_bytes = target_kb * 1024 if target_kb else None
+
+        if target_bytes is not None and len(original_bytes) <= target_bytes:
             return original_bytes, file.name
 
-        target_bytes = target_kb * 1024 if target_kb else None
+        if ext == ".svg":
+            return original_bytes, file.name
 
         file.seek(0)
         try:
