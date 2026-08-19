@@ -15,17 +15,17 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='site',
             name='favicon',
-            field=models.ImageField(blank=True, null=True, upload_to=apps.sites.models.SiteImageUploadTo('favicons'), validators=[apps.core.validators.ImageValidator(max_height=512, max_width=512, min_height=16, min_width=16)]),
+            field=models.ImageField(blank=True, null=True, upload_to=apps.sites.models.SiteImageUploadTo('favicons'), validators=[apps.core.validators.validate_favicon_image]),
         ),
         migrations.AlterField(
             model_name='site',
             name='logo',
-            field=models.ImageField(blank=True, null=True, upload_to=apps.sites.models.SiteImageUploadTo('logos'), validators=[apps.core.validators.ImageValidator(max_height=1000, max_width=1000, min_height=50, min_width=50)]),
+            field=models.ImageField(blank=True, null=True, upload_to=apps.sites.models.SiteImageUploadTo('logos'), validators=[apps.core.validators.validate_logo_image]),
         ),
         migrations.AlterField(
             model_name='site',
             name='thumbnail',
-            field=models.ImageField(blank=True, null=True, upload_to=apps.sites.models.SiteImageUploadTo('thumbnails'), validators=[apps.core.validators.ImageValidator(max_height=800, max_width=800, min_height=100, min_width=100)]),
+            field=models.ImageField(blank=True, null=True, upload_to=apps.sites.models.SiteImageUploadTo('thumbnails'), validators=[apps.core.validators.validate_thumbnail_image]),
         ),
         migrations.AlterField(
             model_name='site',

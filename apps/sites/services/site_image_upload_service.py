@@ -14,6 +14,18 @@ class SiteImageUploadService:
         failed = []
 
         images = request.FILES.getlist("image")
+        if not images:
+            return {
+                "uploaded": [],
+                "failed": [
+                    {
+                        "file_name": None,
+                        "errors": {
+                            "image": ["No image file was uploaded."]
+                        },
+                    }
+                ],
+            }
 
         for image in images:
             data = {}

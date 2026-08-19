@@ -15,6 +15,6 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='page',
             name='hero_image',
-            field=models.ImageField(blank=True, null=True, upload_to=apps.pages.models.PageImageUploadTo('hero'), validators=[apps.core.validators.ImageValidator(max_height=2160, max_width=3840, min_height=600, min_width=1200)]),
+            field=models.ImageField(blank=True, null=True, upload_to=apps.pages.models.PageImageUploadTo('hero'), validators=[apps.core.validators.validate_hero_image]),
         ),
     ]

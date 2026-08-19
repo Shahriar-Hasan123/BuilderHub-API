@@ -226,6 +226,7 @@ class SiteLockAPIView(APIView):
         responses=SiteImageSerializer,
     ),
 )
+
 class SiteImageListAPIView(APIView, SiteLockMixin):
     permission_classes = [permissions.IsAuthenticated, HasUpdatePermission]
 
@@ -250,6 +251,11 @@ class SiteImageListAPIView(APIView, SiteLockMixin):
         )
 
         result = service.upload(request)
+        response_status = (
+            status.HTTP_400_BAD_REQUEST
+            if not result["uploaded"] and result["failed"]
+            else status.HTTP_201_CREATED
+        )
         return Response(
             {
                 "uploaded": len(result["uploaded"]),
@@ -257,7 +263,7 @@ class SiteImageListAPIView(APIView, SiteLockMixin):
                 "success": result["uploaded"],
                 "errors": result["failed"],
             },
-            status=status.HTTP_201_CREATED,
+            status=response_status,
         )
 
 

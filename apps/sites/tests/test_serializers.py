@@ -1,9 +1,13 @@
+import io
+
+from PIL import Image
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIRequestFactory
 
-from apps.sites.models import Site
-from apps.sites.serializers import SiteSerializer
+from apps.sites.models import ImageVariant, Site, SiteImage
+from apps.sites.serializers import SiteImageSerializer, SiteSerializer
 
 User = get_user_model()
 
@@ -54,3 +58,74 @@ class SiteSerializerTests(TestCase):
         self.assertTrue(serializer.is_valid(), serializer.errors)
         self.assertNotIn("user", serializer.validated_data)
         self.assertNotIn("updated_by", serializer.validated_data)
+
+
+class SiteImageSerializerTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="image_serializer_user", password="pass12345"
+        )
+        self.site = Site.objects.create(user=self.user, name="Image Site")
+
+    def _image(self, name="image.png", size=(200, 200), image_type="PNG"):
+        output = io.BytesIO()
+        Image.new("RGB", size, color="red").save(output, format=image_type)
+        return SimpleUploadedFile(name, output.getvalue(), content_type="image/png")
+
+    def test_create_optimizes_and_preserves_site_metadata(self):
+        serializer = SiteImageSerializer(
+            data={
+                "image": self._image(),
+                "image_type": SiteImage.ImageType.REGULAR,
+                "alt_text": "A red image",
+            },
+            context={"site": self.site},
+        )
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        image = serializer.save(site=self.site, created_by=self.user)
+
+        self.assertEqual(image.site_id, self.site.id)
+        self.assertEqual(image.file_name, "image.png")
+        self.assertEqual(image.alt_text, "A red image")
+        self.assertEqual(image.width, 200)
+        self.assertEqual(image.height, 200)
+        self.assertGreater(image.file_size, 0)
+        self.assertTrue(image.image.name)
+
+    def test_metadata_only_patch_does_not_require_image(self):
+        image = SiteImage.objects.create(
+            site=self.site,
+            image=self._image(),
+            image_type=SiteImage.ImageType.REGULAR,
+        )
+        serializer = SiteImageSerializer(
+            image,
+            data={"alt_text": "Updated text"},
+            partial=True,
+            context={"site": self.site},
+        )
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        updated = serializer.save()
+
+        self.assertEqual(updated.alt_text, "Updated text")
+
+    def test_create_generates_responsive_variants(self):
+        serializer = SiteImageSerializer(
+            data={
+                "image": self._image(size=(2000, 1000)),
+                "image_type": SiteImage.ImageType.REGULAR,
+            },
+            context={"site": self.site},
+        )
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        image = serializer.save(site=self.site, created_by=self.user)
+
+        variants = ImageVariant.objects.filter(image_upload=image)
+        self.assertEqual(
+            set(variants.values_list("variant_type", flat=True)),
+            {"mobile", "laptop", "desktop"},
+        )
+        self.assertTrue(all(variant.image.name for variant in variants))

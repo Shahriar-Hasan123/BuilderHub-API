@@ -19,17 +19,17 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='site',
             name='favicon',
-            field=models.ImageField(blank=True, null=True, upload_to=apps.sites.models.SiteImageUploadTo('favicons'), validators=[apps.core.validators.ImageValidator(max_height=1000, max_width=1000, min_height=16, min_width=16)]),
+            field=models.ImageField(blank=True, null=True, upload_to=apps.sites.models.SiteImageUploadTo('favicons'), validators=[apps.core.validators.validate_favicon_image]),
         ),
         migrations.AlterField(
             model_name='site',
             name='logo',
-            field=models.ImageField(blank=True, null=True, upload_to=apps.sites.models.SiteImageUploadTo('logos'), validators=[apps.core.validators.ImageValidator(max_height=2000, max_width=2000, min_height=100, min_width=100)]),
+            field=models.ImageField(blank=True, null=True, upload_to=apps.sites.models.SiteImageUploadTo('logos'), validators=[apps.core.validators.validate_logo_image]),
         ),
         migrations.AlterField(
             model_name='site',
             name='thumbnail',
-            field=models.ImageField(blank=True, null=True, upload_to=apps.sites.models.SiteImageUploadTo('thumbnails'), validators=[apps.core.validators.ImageValidator(max_height=1500, max_width=1500, min_height=150, min_width=150)]),
+            field=models.ImageField(blank=True, null=True, upload_to=apps.sites.models.SiteImageUploadTo('thumbnails'), validators=[apps.core.validators.validate_thumbnail_image]),
         ),
         migrations.CreateModel(
             name='SiteImage',
@@ -37,7 +37,7 @@ class Migration(migrations.Migration):
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
-                ('image', models.ImageField(upload_to=apps.sites.models.SiteImageUploadTo('images'), validators=[apps.core.validators.ImageValidator(max_height=6000, max_width=6000, min_height=20, min_width=20)])),
+                ('image', models.ImageField(upload_to=apps.sites.models.SiteImageUploadTo('images'), validators=[apps.core.validators.validate_regular_image])),
                 ('alt_text', models.CharField(blank=True, max_length=255)),
                 ('caption', models.CharField(blank=True, max_length=500)),
                 ('file_size', models.PositiveIntegerField(blank=True, help_text='Size in bytes, cached at save time.', null=True)),

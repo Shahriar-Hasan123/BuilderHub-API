@@ -7,7 +7,7 @@ from apps.core.models import BaseModel
 from apps.core.validators import (
     css_file_validator,
     html_file_validator,
-    validate_content_image,
+    validate_regular_image,
     validate_favicon_image,
     validate_file_size,
     validate_logo_image,
@@ -143,11 +143,14 @@ class Site(BaseModel):
 
 
 class SiteImage(BaseModel):
-    class Device(models.TextChoices):
-        DESKTOP = "desktop", "Desktop"
-        TABLET = "tablet", "Tablet"
-        MOBILE = "mobile", "Mobile"
 
+    class ImageType(models.TextChoices):
+        REGULAR = "regular", "Regular"
+        HERO = "hero", "Hero"
+        THUMBNAIL = "thumbnail", "Thumbnail"
+        FAVICON = "favicon", "Favicon"
+        LOGO = "logo", "Logo"
+    
     site = models.ForeignKey(
         Site,
         on_delete=models.CASCADE,
@@ -165,16 +168,16 @@ class SiteImage(BaseModel):
 
     image = models.ImageField(
         upload_to=SiteImageUploadTo("images"),
-        validators=[validate_content_image],
+        validators=[validate_regular_image],
     )
+
+    image_type = models.CharField(max_length=20, choices=ImageType.choices, default=ImageType.REGULAR)
     alt_text = models.CharField(max_length=255, blank=True)
     file_size = models.PositiveIntegerField(
         blank=True, null=True, help_text="Size in bytes, cached at save time."
     )
     width = models.PositiveIntegerField(blank=True, null=True)
     height = models.PositiveIntegerField(blank=True, null=True)
-
-    device = models.CharField(max_length=20, choices=Device, default=Device.DESKTOP)
 
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -200,6 +203,45 @@ class SiteImage(BaseModel):
         return f"Image ({self.site.name})" + (
             f" - {self.page.title}" if self.page_id else ""
         )
+
+
+def upload_to_variant(instance, filename):
+    return SiteImageUploadTo("variants")(instance.image_upload, filename)
+
+
+class ImageVariant(models.Model):
+    class VariantType(models.TextChoices):
+        MOBILE = "mobile", "Mobile"
+        LAPTOP = "laptop", "Laptop"
+        DESKTOP = "desktop", "Desktop"
+
+    image_upload = models.ForeignKey(
+        SiteImage,
+        on_delete=models.CASCADE,
+        related_name="variants",
+    )
+    variant_type = models.CharField(
+        max_length=10,
+        choices=VariantType.choices,
+    )
+    image = models.FileField(upload_to=upload_to_variant)
+    width = models.PositiveIntegerField()
+    height = models.PositiveIntegerField()
+    format = models.CharField(max_length=10)
+    file_size = models.PositiveIntegerField(help_text="Size in bytes.")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["image_upload", "variant_type"],
+                name="unique_site_image_variant_type",
+            ),
+        ]
+        ordering = ["width"]
+
+    def __str__(self):
+        return f"{self.image_upload.file_name} ({self.variant_type}, {self.width}x{self.height})"
 
 
 class SitePublishVersion(BaseModel):
