@@ -100,6 +100,18 @@ All notable changes to this project are documented in this file.
 - Added `import_blogs` management command as a thin entry point
 
 ### Site Publish Feature
+- Added content-addressed version snapshots for generated header, footer, and
+  page JSON assets using SHA-256 blob hashes.
+- Added asset manifests for editable CSS files so CSS changes participate in
+  version comparison and exact rollback restoration.
+- Added version deduplication using header, footer, page, and asset hashes.
+- Added rollback restoration for site name, header/footer HTML, page metadata,
+  page HTML, CSS files, and image path references.
+- Rollback now reconciles the database page set with the selected version by
+  removing pages created after that version.
+- Added unpublished-change detection across generated content and CSS hashes,
+  with explicit confirmation before discarding draft changes.
+- Published JSON assets are written with two-space indentation for readability.
 - Added `Site.header` / `Site.footer` FileFields (reusing existing HTML validators)
 - Added `HTMLMinifier` service: repairs malformed HTML and collapses whitespace (separate from the blog-import cleaner/sanitizer)
 - Added `HTMLToJSONConverter`: wraps minified HTML + metadata into a JSON dict (not a DOM/AST parser)

@@ -89,7 +89,7 @@ class Site(BaseModel):
         null=True,
     )
     global_css = models.FileField(
-        upload_to="sites/css/",
+        upload_to=SiteFileUploadTo("css"),
         validators=[css_file_validator, validate_file_size],
         blank=True,
         null=True,
@@ -253,6 +253,10 @@ class SitePublishVersion(BaseModel):
     footer_hash = models.CharField(max_length=256)
     page_hashes = models.JSONField(
         default=dict, help_text="Mapping of page slug to its content hash."
+    )
+    asset_hashes = models.JSONField(
+        default=dict,
+        help_text="Mapping of editable asset paths to their content hashes.",
     )
     published_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

@@ -40,13 +40,21 @@ class PublishService:
 
     def _build_json(self, site, pages):
         header_html = self.minifier.minify(self._read(site.header))
-        header_json = json.dumps(
-            self.converter.convert_header(site, header_html), sort_keys=True
+        header_json = (
+            json.dumps(
+                self.converter.convert_header(site, header_html),
+                indent=2,
+            )
+            + "\n"
         )
 
         footer_html = self.minifier.minify(self._read(site.footer))
-        footer_json = json.dumps(
-            self.converter.convert_footer(site, footer_html), sort_keys=True
+        footer_json = (
+            json.dumps(
+                self.converter.convert_footer(site, footer_html),
+                indent=2,
+            )
+            + "\n"
         )
 
         page_jsons = {
@@ -54,21 +62,60 @@ class PublishService:
                 self.converter.convert_page(
                     site, page, self.minifier.minify(self._read(page.html))
                 ),
-                sort_keys=True,
+                indent=2,
             )
+            + "\n"
             for page in pages
         }
         return header_json, footer_json, page_jsons
 
-    def _safe_write(self, path, content):
-        temp_path = f"{path}.tmp"
-        if default_storage.exists(temp_path):
-            default_storage.delete(temp_path)
-        default_storage.save(temp_path, ContentFile(content.encode("utf-8")))
+    def _snapshot_file(self, file_field):
+        if not file_field:
+            return None
+        with file_field.open("rb") as file:
+            content_hash = self.blobs.put(file.read())
+        return {"hash": content_hash, "name": file_field.name.rsplit("/", 1)[-1]}
+
+    def _snapshot_assets(self, site, pages):
+        assets = {
+            "site.global_css": self._snapshot_file(site.global_css),
+        }
+        for page in pages:
+            assets[f"page:{page.slug}:css"] = self._snapshot_file(page.css)
+        return assets
+
+    def _restore_file(self, instance, field_name, asset):
+        field = getattr(instance, field_name)
+        if asset is None:
+            if field:
+                field.delete(save=False)
+            setattr(instance, field_name, None)
+            return
+        content = self.blobs.read(asset["hash"])
+        field.save(asset["name"], ContentFile(content), save=False)
+
+    def _restore_file_reference(self, instance, field_name, path):
+        field = getattr(instance, field_name)
+        field.name = path or None
+
+    def _replace_published_file(self, path, content):
+        """Replace a published JSON file and restore its old bytes on failure."""
+        content_bytes = content.encode("utf-8")
+        previous_bytes = None
+
         if default_storage.exists(path):
+            with default_storage.open(path, "rb") as file:
+                previous_bytes = file.read()
             default_storage.delete(path)
-        default_storage.save(path, ContentFile(content.encode("utf-8")))
-        default_storage.delete(temp_path)
+
+        try:
+            default_storage.save(path, ContentFile(content_bytes))
+        except Exception:
+            if default_storage.exists(path):
+                default_storage.delete(path)
+            if previous_bytes is not None:
+                default_storage.save(path, ContentFile(previous_bytes))
+            raise
 
     def _cleanup_orphan_pages(self, site, expected_slugs):
         pages_dir = f"assets/sites/{slugify(site.name)}/pages/"
@@ -103,11 +150,16 @@ class PublishService:
             slug: self.blobs.put(content.encode("utf-8"))
             for slug, content in page_jsons.items()
         }
+        asset_hashes = self._snapshot_assets(site, pages)
 
-        self._safe_write(f"assets/sites/{slugify(site.name)}/header.json", header_json)
-        self._safe_write(f"assets/sites/{slugify(site.name)}/footer.json", footer_json)
+        self._replace_published_file(
+            f"assets/sites/{slugify(site.name)}/header.json", header_json
+        )
+        self._replace_published_file(
+            f"assets/sites/{slugify(site.name)}/footer.json", footer_json
+        )
         for slug, content in page_jsons.items():
-            self._safe_write(
+            self._replace_published_file(
                 f"assets/sites/{slugify(site.name)}/pages/{slug}.json", content
             )
         self._cleanup_orphan_pages(site, page_jsons.keys())
@@ -122,6 +174,7 @@ class PublishService:
                 header_hash=header_hash,
                 footer_hash=footer_hash,
                 page_hashes=page_hashes,
+                asset_hashes=asset_hashes,
             ).first()
             version = existing_version or SitePublishVersion.objects.create(
                 site=locked_site,
@@ -129,6 +182,7 @@ class PublishService:
                 header_hash=header_hash,
                 footer_hash=footer_hash,
                 page_hashes=page_hashes,
+                asset_hashes=asset_hashes,
                 published_by=user,
             )
             locked_site.status = locked_site.Status.PUBLISHED
@@ -177,11 +231,13 @@ class PublishService:
             slug: self.blobs.put(content.encode("utf-8"))
             for slug, content in page_jsons.items()
         }
+        asset_hashes = self._snapshot_assets(site, pages)
 
         return (
             header_hash != current.header_hash
             or footer_hash != current.footer_hash
             or page_hashes != current.page_hashes
+            or asset_hashes != current.asset_hashes
         )
 
     def restore_source(self, site, version, user):
@@ -198,6 +254,7 @@ class PublishService:
             slug: json.loads(self.blobs.read(page_hash).decode("utf-8"))
             for slug, page_hash in version.page_hashes.items()
         }
+        asset_hashes = version.asset_hashes or {}
 
         # Restore Site
 
@@ -208,6 +265,14 @@ class PublishService:
         site.footer.save(
             "footer.html", ContentFile(footer_data["html"].encode("utf-8")), save=False
         )
+        self._restore_file(
+            site,
+            "global_css",
+            asset_hashes.get("site.global_css"),
+        )
+        self._restore_file_reference(site, "favicon", header_data.get("favicon"))
+        self._restore_file_reference(site, "logo", header_data.get("logo"))
+        self._restore_file_reference(site, "thumbnail", header_data.get("thumbnail"))
 
         site.updated_by = user
 
@@ -236,6 +301,12 @@ class PublishService:
                 ContentFile(data["html"].encode("utf-8")),
                 save=False,
             )
+            self._restore_file(
+                page,
+                "css",
+                asset_hashes.get(f"page:{slug}:css"),
+            )
+            self._restore_file_reference(page, "hero_image", data.get("hero_image"))
 
             page.enable = True
             page.status = Page.Status.PUBLISHED
@@ -245,7 +316,8 @@ class PublishService:
 
             restored_pages.append(slug)
 
-        # Disable pages that do not exist in target version
+        # Remove pages that do not exist in the target version so the editable
+        # database state matches the rollback snapshot.
 
         restored_slugs = set(page_data_by_slug)
 
@@ -258,10 +330,7 @@ class PublishService:
         removed_pages = [page.slug for page in pages_to_disable]
 
         if pages_to_disable:
-            Page.objects.filter(pk__in=[page.pk for page in pages_to_disable]).update(
-                enable=False,
-                updated_by=user,
-            )
+            Page.objects.filter(pk__in=[page.pk for page in pages_to_disable]).delete()
 
         # Save Site
 

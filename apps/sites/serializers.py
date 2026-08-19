@@ -260,6 +260,7 @@ class SitePublishVersionSerializer(serializers.ModelSerializer):
             "header_hash",
             "footer_hash",
             "page_hashes",
+            "asset_hashes",
             "published_by",
             "created_at",
         ]

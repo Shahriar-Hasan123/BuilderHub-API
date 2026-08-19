@@ -347,6 +347,8 @@ class SiteImageDetailAPIView(APIView, SiteLockMixin):
         responses=object_response(),
     ),
 )
+
+
 class SitePublishAPIView(APIView, SiteLockMixin):
     permission_classes = [permissions.IsAuthenticated, HasUpdatePermission]
 
@@ -372,6 +374,8 @@ class SitePublishAPIView(APIView, SiteLockMixin):
         responses=SitePublishVersionSerializer(many=True),
     )
 )
+
+
 class SitePublishVersionListAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated, HasUpdatePermission]
 
