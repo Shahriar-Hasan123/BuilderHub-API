@@ -23,6 +23,17 @@ All notable changes to this project are documented in this file.
 - Added role-based image presets for favicon (16-512px, 50KB) and logo (50-1000px, 150KB)
 
 ### Image Optimization
+- Added the SiteImage optimization pipeline using shared core constants and
+  validators for regular, hero, thumbnail, logo, and favicon image types.
+- Added lossless-first and lossy fallback processing with optimized filename,
+  file size, width, and height metadata saved on SiteImage.
+- Added responsive ImageVariant generation and nested variant response data for
+  SiteImage uploads; skipped variants for formats preserved unchanged by the
+  optimizer.
+- Added SVG/animated-image detection and preservation in the upload pipeline.
+- Improved empty-upload responses to return a readable HTTP 400 error instead
+  of an empty success response.
+- Added validation for unsupported image types and favicon responsive sizes.
 - Added `ImageOptimizer` service for upload-time image compression and format handling.
 - Added `ImageOptimizationMixin` to auto-compress configured DRF image fields during `create()` and `update()`.
 - Refactored image compression logic by replacing `ImageOptimizationMixin` with a dedicated `ImageFieldProcessor` service in `apps/core/utils/image_field_processor.py`; `SiteSerializer`, `SiteImageSerializer`, and `PageSerializer` now invoke it directly from their own `create()`/`update()` methods with no behavior change.
