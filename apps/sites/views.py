@@ -16,6 +16,7 @@ from apps.core.permissions import HasUpdatePermission
 from apps.core.schema import object_response, site_schema, site_schema_view
 from apps.core.services.resource_lock import SiteLockService
 from apps.sites.services.publish_service import PublishService
+from apps.sites.services.rollback_service import RollbackService
 from apps.sites.services.site_image_upload_service import SiteImageUploadService
 
 from .models import Site, SiteImage, SitePublishVersion
@@ -44,7 +45,11 @@ class SiteListCreateAPIView(APIView):
 
     def get(self, request):
         sites = Site.objects.all()
-        serializer = SiteSerializer(sites, many=True)
+        serializer = SiteSerializer(
+            sites,
+            many=True,
+            context={"request": request},
+        )
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request):
@@ -90,7 +95,7 @@ class SiteDetailAPIView(APIView, SiteLockMixin):
 
     def get(self, request, pk):
         site = self.get_object(pk)
-        serializer = SiteSerializer(site)
+        serializer = SiteSerializer(site, context={"request": request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def put(self, request, pk):
@@ -226,7 +231,6 @@ class SiteLockAPIView(APIView):
         responses=SiteImageSerializer,
     ),
 )
-
 class SiteImageListAPIView(APIView, SiteLockMixin):
     permission_classes = [permissions.IsAuthenticated, HasUpdatePermission]
 
@@ -238,7 +242,11 @@ class SiteImageListAPIView(APIView, SiteLockMixin):
     def get(self, request, site_pk):
         site = self.get_site(site_pk)
         images = SiteImage.objects.filter(site=site)
-        serializer = SiteImageSerializer(images, many=True)
+        serializer = SiteImageSerializer(
+            images,
+            many=True,
+            context={"request": request, "site": site},
+        )
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request, site_pk):
@@ -302,7 +310,10 @@ class SiteImageDetailAPIView(APIView, SiteLockMixin):
 
     def get(self, request, site_pk, pk):
         _, image = self.get_object(site_pk, pk)
-        serializer = SiteImageSerializer(image)
+        serializer = SiteImageSerializer(
+            image,
+            context={"request": request},
+        )
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def put(self, request, site_pk, pk):
@@ -311,7 +322,7 @@ class SiteImageDetailAPIView(APIView, SiteLockMixin):
         serializer = SiteImageSerializer(
             instance=image,
             data=request.data,
-            context={"site": site},
+            context={"request": request, "site": site},
         )
         serializer.is_valid(raise_exception=True)
         serializer.save(updated_by=request.user)
@@ -324,7 +335,7 @@ class SiteImageDetailAPIView(APIView, SiteLockMixin):
             instance=image,
             data=request.data,
             partial=True,
-            context={"site": site},
+            context={"request": request, "site": site},
         )
         serializer.is_valid(raise_exception=True)
         serializer.save(updated_by=request.user)
@@ -347,8 +358,6 @@ class SiteImageDetailAPIView(APIView, SiteLockMixin):
         responses=object_response(),
     ),
 )
-
-
 class SitePublishAPIView(APIView, SiteLockMixin):
     permission_classes = [permissions.IsAuthenticated, HasUpdatePermission]
 
@@ -360,7 +369,11 @@ class SitePublishAPIView(APIView, SiteLockMixin):
         self.check_object_permissions(request, site)
         self.enforce_site_lock(request, site)
         try:
-            result = PublishService().publish(site, user=request.user)
+            result = PublishService().publish(
+                site,
+                user=request.user,
+                request=request,
+            )
         except PublishValidationError as exc:
             raise DRFValidationError(str(exc))
 
@@ -374,8 +387,6 @@ class SitePublishAPIView(APIView, SiteLockMixin):
         responses=SitePublishVersionSerializer(many=True),
     )
 )
-
-
 class SitePublishVersionListAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated, HasUpdatePermission]
 
@@ -441,12 +452,12 @@ class SiteRollbackAPIView(APIView, SiteLockMixin):
             SitePublishVersion, site=site, version_number=version_number
         )
 
-        service = PublishService()
+        service = RollbackService()
 
         # If there are unpublished changes, require explicit confirmation
         # to discard them. Use ?confirm=true to proceed.
         if (
-            service.has_unpublished_changes(site)
+            service.has_unpublished_changes(site, request)
             and request.query_params.get("confirm") != "true"
         ):
             return Response(
@@ -460,7 +471,12 @@ class SiteRollbackAPIView(APIView, SiteLockMixin):
             )
 
         try:
-            result = service.rollback(site, version, user=request.user)
+            result = service.rollback(
+                site,
+                version,
+                user=request.user,
+                request=request,
+            )
         except PublishValidationError as exc:
             raise DRFValidationError(str(exc))
 

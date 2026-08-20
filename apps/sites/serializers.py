@@ -84,7 +84,11 @@ class ImageVariantSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_image_path(self, obj):
-        return obj.image.url if obj.image else None
+        if not obj.image:
+            return None
+        path = obj.image.url
+        request = self.context.get("request")
+        return request.build_absolute_uri(path) if request else path
 
 
 class SiteImageSerializer(serializers.ModelSerializer):
@@ -128,7 +132,7 @@ class SiteImageSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        
+
     def validate(self, attrs):
         image_file = attrs.get("image")
         image_type = attrs.get("image_type") or getattr(
@@ -234,7 +238,11 @@ class SiteImageSerializer(serializers.ModelSerializer):
             ImageVariant.objects.bulk_create(variants)
 
     def get_image_path(self, obj):
-        return obj.image.url if obj.image else None
+        if not obj.image:
+            return None
+        path = obj.image.url
+        request = self.context.get("request")
+        return request.build_absolute_uri(path) if request else path
 
 
     def get_file_size(self, obj):

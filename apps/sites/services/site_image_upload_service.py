@@ -51,7 +51,12 @@ class SiteImageUploadService:
                     created_by=self.user,
                 )
 
-                uploaded.append(SiteImageSerializer(instance).data)
+                uploaded.append(
+                    SiteImageSerializer(
+                        instance,
+                        context={"request": request, "site": self.site},
+                    ).data
+                )
 
             except serializers.ValidationError as exc:
                 failed.append(

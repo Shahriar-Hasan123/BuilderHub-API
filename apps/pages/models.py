@@ -118,5 +118,13 @@ class Page(BaseModel):
 
         super().save(*args, **kwargs)
 
+    def delete(self, *args, **kwargs):
+        for field_name in ("html", "css", "hero_image"):
+            field = getattr(self, field_name)
+            if field:
+                field.delete(save=False)
+
+        super().delete(*args, **kwargs)
+
     def __str__(self):
         return f"{self.title} ({self.site.name})"

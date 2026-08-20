@@ -5,7 +5,7 @@ from django.core.files.storage import default_storage
 
 
 class BlobStore:
-    BASE_DIR = "assets/blobs"
+    BASE_DIR = "assets"
 
     def _as_bytes(self, content):
         return content.encode("utf-8") if isinstance(content, str) else bytes(content)

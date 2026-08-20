@@ -36,7 +36,11 @@ class PageListCreateAPIView(APIView, SiteLockMixin):
     def get(self, request, site_pk):
         site = self.get_site(site_pk)
         pages = Page.objects.filter(site=site)
-        serializer = PageSerializer(pages, many=True)
+        serializer = PageSerializer(
+            pages,
+            many=True,
+            context={"request": request, "site": site},
+        )
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request, site_pk):
@@ -45,6 +49,7 @@ class PageListCreateAPIView(APIView, SiteLockMixin):
         serializer = PageSerializer(
             data=request.data,
             context={
+                "request": request,
                 "site": site,
             },
         )
@@ -88,7 +93,10 @@ class PageDetailAPIView(APIView, SiteLockMixin):
 
     def get(self, request, site_pk, pk):
         site, page = self.get_object(site_pk, pk)
-        serializer = PageSerializer(page)
+        serializer = PageSerializer(
+            page,
+            context={"request": request, "site": site},
+        )
         return Response(serializer.data)
 
     def put(self, request, site_pk, pk):
@@ -98,6 +106,7 @@ class PageDetailAPIView(APIView, SiteLockMixin):
             instance=page,
             data=request.data,
             context={
+                "request": request,
                 "site": page.site,
             },
         )
@@ -113,6 +122,7 @@ class PageDetailAPIView(APIView, SiteLockMixin):
             data=request.data,
             partial=True,
             context={
+                "request": request,
                 "site": page.site,
             },
         )
