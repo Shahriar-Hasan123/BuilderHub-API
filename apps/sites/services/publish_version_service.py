@@ -9,10 +9,8 @@ class PublishVersionService:
         self.assets = assets
         self.content = content
 
-    def hashes(self, site, pages, request=None):
-        header_json, footer_json, page_jsons = self.content.build_json(
-            site, pages, request
-        )
+    def hashes(self, site, pages):
+        header_json, footer_json, page_jsons = self.content.build_json(site, pages)
         header_hash = self.blobs.put(header_json.encode("utf-8"))
         footer_hash = self.blobs.put(footer_json.encode("utf-8"))
         page_hashes = {

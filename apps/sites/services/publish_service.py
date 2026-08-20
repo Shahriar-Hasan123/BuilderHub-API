@@ -31,7 +31,7 @@ class PublishService:
             footer_hash,
             page_hashes,
             asset_hashes,
-        ) = self.versions.hashes(site, pages, request)
+        ) = self.versions.hashes(site, pages)
 
         previous_files = {}
         try:
@@ -87,7 +87,7 @@ class PublishService:
             site.pages.filter(enable=True, html__isnull=False).exclude(html="")
         )
         _, _, _, header_hash, footer_hash, page_hashes, asset_hashes = self.versions.hashes(
-            site, pages, request
+            site, pages
         )
 
         return (

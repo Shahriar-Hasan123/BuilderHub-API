@@ -28,23 +28,23 @@ class PublishContentService:
         if not self.read(site.footer).strip():
             raise PublishValidationError("Footer file is empty.")
 
-    def build_json(self, site, pages, request=None):
+    def build_json(self, site, pages):
         header_html = self.minifier.minify(self.read(site.header))
         header_json = json.dumps(
-            self.converter.convert_header(site, header_html, request),
+            self.converter.convert_header(site, header_html),
             indent=2,
         ) + "\n"
 
         footer_html = self.minifier.minify(self.read(site.footer))
         footer_json = json.dumps(
-            self.converter.convert_footer(site, footer_html, request),
+            self.converter.convert_footer(site, footer_html),
             indent=2,
         ) + "\n"
 
         page_jsons = {
             page.slug: json.dumps(
                 self.converter.convert_page(
-                    site, page, self.minifier.minify(self.read(page.html)), request
+                    site, page, self.minifier.minify(self.read(page.html))
                 ),
                 indent=2,
             ) + "\n"
