@@ -266,6 +266,142 @@ complete objects to the template. The template renders the published HTML,
 metadata, favicon, and CSS references. It does not read draft site or page
 content directly from the database.
 
+## API Requests and Responses
+
+### Publish a Site
+
+Request:
+
+```http
+POST /api/v1/sites/{site_id}/publish
+Authorization: Bearer <access-token>
+```
+
+The site must have a valid site lock held by the requesting user. The publish
+request does not require a request body.
+
+Successful response:
+
+```json
+{
+    "message": "Site published successfully.",
+    "site": {
+        "id": 25,
+        "status": "published",
+        "current_published_version": 6
+    },
+    "version": {
+        "id": 15,
+        "number": 6,
+        "published_at": "2026-08-20T05:02:58.575684Z",
+        "published_by": 1
+    },
+    "snapshot": {
+        "directory": "http://localhost:8000/media/published/sites/blog-next/",
+        "files": {
+            "header": {
+                "name": "header.json",
+                "url": "http://localhost:8000/media/published/sites/blog-next/header.json"
+            },
+            "footer": {
+                "name": "footer.json",
+                "url": "http://localhost:8000/media/published/sites/blog-next/footer.json"
+            },
+            "pages": [
+                {
+                    "slug": "home-page",
+                    "name": "home-page.json",
+                    "url": "http://localhost:8000/media/published/sites/blog-next/pages/home-page.json"
+                }
+            ]
+        }
+    }
+}
+```
+
+### List Publish Versions
+
+Request:
+
+```http
+GET /api/v1/sites/{site_id}/publish-versions
+Authorization: Bearer <access-token>
+```
+
+This returns the site's publish history ordered by newest version first.
+
+### Roll Back to a Version
+
+First request without confirmation:
+
+```http
+POST /api/v1/sites/{site_id}/rollback/{version_number}
+Authorization: Bearer <access-token>
+```
+
+If unpublished changes exist, the API returns `409 Conflict`:
+
+```json
+{
+    "warning": "unpublished_changes_will_be_discarded",
+    "detail": "This site has unpublished edits not reflected in the last published version. Rolling back will overwrite them."
+}
+```
+
+To confirm the rollback:
+
+```http
+POST /api/v1/sites/{site_id}/rollback/{version_number}?confirm=true
+Authorization: Bearer <access-token>
+```
+
+Successful response:
+
+```json
+{
+    "message": "Rollback completed successfully.",
+    "from_version": {
+        "number": 6
+    },
+    "to_version": {
+        "number": 2
+    },
+    "restored": {
+        "site": true,
+        "header": true,
+        "footer": true,
+        "pages": ["home-page", "about-page"],
+        "assets": true
+    },
+    "removed": {
+        "pages": ["service-page"]
+    }
+}
+```
+
+### View the Published Website
+
+Request:
+
+```http
+GET /published/{site-slug}/{page-slug}/
+```
+
+Example:
+
+```http
+GET /published/blog-next/home-page/
+```
+
+The response is an HTML document rendered by Django from the published JSON
+snapshot. It is not an API JSON response. The default site URL is:
+
+```http
+GET /published/{site-slug}/
+```
+
+which renders the first published page found for that site.
+
 ## Consistency and Transaction Notes
 
 Database status changes, version creation, and page status updates occur inside `transaction.atomic()`. The site row is locked while allocating a new version number.
