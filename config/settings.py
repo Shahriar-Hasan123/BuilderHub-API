@@ -67,7 +67,7 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / 'templates'],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -183,3 +183,14 @@ SPECTACULAR_SETTINGS = {
         "persistAuthorization": True,
     },
 }
+
+# 1. The URL used to access static files in the browser
+STATIC_URL = 'static/'
+
+# 2. Paths to additional, project-level static folders (Development)
+STATICFILES_DIRS = [
+    BASE_DIR / 'static',
+]
+
+# 3. The absolute path where static files are collected (Production)
+STATIC_ROOT = BASE_DIR / 'staticfiles'

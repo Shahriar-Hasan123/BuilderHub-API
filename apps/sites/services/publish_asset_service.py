@@ -108,6 +108,24 @@ class PublishAssetService:
             self.replace_published_file(path, content)
         return previous_files
 
+    def materialize_version(self, site, version):
+        header_json = self.blobs.read(version.header_hash).decode("utf-8")
+        footer_json = self.blobs.read(version.footer_hash).decode("utf-8")
+        page_jsons = {
+            slug: self.blobs.read(page_hash).decode("utf-8")
+            for slug, page_hash in version.page_hashes.items()
+        }
+        previous_files = self.replace_published_files(
+            site,
+            header_json,
+            footer_json,
+            page_jsons,
+        )
+        previous_files.update(
+            self.cleanup_orphan_pages(site, page_jsons.keys())
+        )
+        return previous_files
+
     def delete_page_files(self, page):
         for field_name in ("html", "css", "hero_image"):
             field = getattr(page, field_name)

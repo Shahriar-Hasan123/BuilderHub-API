@@ -19,8 +19,8 @@ from apps.sites.services.publish_service import PublishService
 from apps.sites.services.rollback_service import RollbackService
 from apps.sites.services.site_image_upload_service import SiteImageUploadService
 
-from .models import Site, SiteImage, SitePublishVersion
-from .serializers import (
+from ..models import Site, SiteImage, SitePublishVersion
+from ..serializers import (
     SiteImageSerializer,
     SitePublishVersionSerializer,
     SiteSerializer,
@@ -358,6 +358,7 @@ class SiteImageDetailAPIView(APIView, SiteLockMixin):
         responses=object_response(),
     ),
 )
+
 class SitePublishAPIView(APIView, SiteLockMixin):
     permission_classes = [permissions.IsAuthenticated, HasUpdatePermission]
 

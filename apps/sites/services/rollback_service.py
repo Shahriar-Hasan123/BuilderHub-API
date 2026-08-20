@@ -1,6 +1,7 @@
 from django.db import transaction
 
 from apps.core.exceptions import PublishValidationError
+from apps.sites.models import Site
 from apps.sites.services.blob_store import BlobStore
 from apps.sites.services.publish_asset_service import PublishAssetService
 from apps.sites.services.restore_service import RestoreService
@@ -10,8 +11,8 @@ from apps.sites.services.publish_service import PublishService
 class RollbackService:
     def __init__(self):
         blobs = BlobStore()
-        assets = PublishAssetService(blobs)
-        self.restore_service = RestoreService(blobs, assets)
+        self.assets = PublishAssetService(blobs)
+        self.restore_service = RestoreService(blobs, self.assets)
         self.publisher = PublishService()
 
     def has_unpublished_changes(self, site, request=None):
@@ -31,7 +32,13 @@ class RollbackService:
 
         with transaction.atomic():
             restore_result = self.restore_source(site, version, user)
-            self.publisher.publish(site, user=user, request=request)
+            self.assets.materialize_version(site, version)
+            locked_site = Site.objects.select_for_update().get(pk=site.pk)
+            locked_site.status = locked_site.Status.PUBLISHED
+            locked_site.current_published_version = version
+            locked_site.save(
+                update_fields=["status", "current_published_version"]
+            )
 
         return {
             "message": "Rollback completed successfully.",

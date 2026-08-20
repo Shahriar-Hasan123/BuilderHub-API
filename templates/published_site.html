@@ -1,0 +1,35 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>{{ page.title }}</title>
+    {% if page.meta_description %}
+        <meta name="description" content="{{ page.meta_description }}">
+    {% endif %}
+    {% if page.canonical_url %}
+        <link rel="canonical" href="{{ page.canonical_url }}">
+    {% endif %}
+
+    {% if header.favicon %}
+        <link rel="icon" href="{{ header.favicon }}">
+    {% endif %}
+
+    {% if header.global_css %}
+        <link rel="stylesheet" href="{{ header.global_css }}">
+    {% endif %}
+    {% if page.css %}
+        <link rel="stylesheet" href="{{ page.css }}">
+    {% endif %}
+</head>
+<body>
+    {{ header.html|safe }}
+
+    {{ page.html|safe }}
+
+    {{ footer.html|safe }}
+</body>
+</html>

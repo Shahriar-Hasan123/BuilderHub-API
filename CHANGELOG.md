@@ -112,10 +112,23 @@ All notable changes to this project are documented in this file.
 - Added unpublished-change detection across generated content and CSS hashes,
   with explicit confirmation before discarding draft changes.
 - Published JSON assets are written with two-space indentation for readability.
+- Moved current published JSON output to `published/sites/{site-slug}/` while
+  retaining `assets/` for content-addressed blob storage.
+- Split publishing into dedicated content, asset, version, publish, rollback,
+  restore, and public rendering services.
+- Added server-rendered public site routes that combine published header, page,
+  and footer JSON through `templates/published_site.html`.
+- Kept versioned JSON asset references relative for stable hashes across local,
+  production, S3, and CDN environments; API responses expose public URLs.
+- Changed rollback to activate the selected historical version directly instead
+  of creating a new publish version.
+- Prevented rollback from creating collision-suffixed header, footer, CSS, and
+  page HTML files by restoring content to stable paths.
+- Added page file cleanup when pages are deleted or removed during rollback.
 - Added `Site.header` / `Site.footer` FileFields (reusing existing HTML validators)
 - Added `HTMLMinifier` service: repairs malformed HTML and collapses whitespace (separate from the blog-import cleaner/sanitizer)
 - Added `HTMLToJSONConverter`: wraps minified HTML + metadata into a JSON dict (not a DOM/AST parser)
-- Added `PublishService`: validates readiness, writes JSON artifacts to `media/assets/sites/{id}/`, flips Site/Page status to `published` only after all writes succeed
+- Added `PublishService`: validates readiness, writes JSON artifacts to `published/sites/{site-slug}/`, and flips Site/Page status to `published` only after all writes succeed
 - Added `SitePublishVersion` model to track publish versions with content hashes, version numbers, and publisher metadata
 - Added `Site.current_published_version` to point to the active published version
 - Added `BlobStore` for content-addressable storage under `assets/blobs/`, so identical content is written only once

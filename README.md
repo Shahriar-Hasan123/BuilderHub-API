@@ -37,6 +37,7 @@ Project reports and worklogs are stored in `docs/`.
 For the image optimization implementation and findings, see:
 
 - `docs/image-optimization-report`
+- `docs/publish-versioning-report.md`
 
 ## Prerequisites
 
@@ -265,12 +266,34 @@ Publishing a site generates JSON files for the site header, footer, and enabled 
 - Single publish version detail: `GET /api/v1/sites/{pk}/publish-versions/{version_number}`
 - Rollback to a previous version: `POST /api/v1/sites/{pk}/rollback/{version_number}`
 
-The publish pipeline now stores content-addressable blobs under `assets/blobs/`, records each publish as a versioned snapshot, and can restore a prior version by re-materializing previously stored blobs without regenerating content.
+- The publish pipeline stores current JSON files under `published/sites/{site-slug}/`.
+- Content-addressable blobs under `assets/{hash-prefix}/{hash}/` store historical JSON and editable CSS content for version comparison and rollback.
+- Publish and rollback logic is separated into `PublishService`, `RollbackService`, `RestoreService`, `PublishContentService`, `PublishAssetService`, and `PublishVersionService`.
+- JSON content uses relative asset paths so hashes remain stable across local, staging, production, S3, and CDN environments.
+- The publish API response includes an organized snapshot with absolute URLs for the current published JSON files.
 - Requires a valid site lock for the current user
-- Returns a payload with the published site ID, status, asset path, and generated file list
+- Returns a payload with site/version information and structured header, footer, and page file URLs
 - Returns `400 Bad Request` when the site is missing header/footer HTML or has no enabled page HTML
 - Returns `423 Locked` when another user holds the site lock
-- Uses a best-effort cleanup routine to remove any already-written JSON artifacts if a publish step fails mid-way
+- Removes orphaned published page JSON files after republishing
+
+### Public Published Websites
+
+Published JSON is rendered server-side through Django templates. These public routes do not read draft content directly from the database; they read the latest materialized JSON files under `published/sites/{site-slug}/`.
+
+| Method | URL | Description |
+|--------|-----|-------------|
+| GET | `/published/{site_slug}/` | Render the first published page for a site |
+| GET | `/published/{site_slug}/{page_slug}/` | Render a specific published page |
+
+Examples:
+
+```text
+http://localhost:8000/published/world-map/
+http://localhost:8000/published/world-map/home-page/
+```
+
+The renderer loads `header.json`, the selected page JSON, and `footer.json`, then passes them to `templates/published_site.html`. The template combines header HTML, page HTML, footer HTML, CSS, favicon, metadata, and canonical URL into the final HTML response.
 
 ### Site Locks
 
